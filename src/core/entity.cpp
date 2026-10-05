@@ -1,0 +1,82 @@
+#include "core/entity.hpp"
+
+#include <type_traits>
+
+namespace xm::core {
+namespace {
+
+// Degenerate arcs (startDegrees == endDegrees) are rejected by design rather
+// than treated as a full turn, see the Arc comment in entity.hpp.
+constexpr double kArcSweepEpsilonDegrees = 1e-12;
+
+}  // namespace
+
+double length(const Line& line) noexcept
+{
+    return distance(line.from, line.to);
+}
+
+double length(const Circle& circle) noexcept
+{
+    if (!(circle.radius > 0.0)) {
+        return 0.0;
+    }
+    return 2.0 * std::numbers::pi * circle.radius;
+}
+
+double length(const Arc& arc) noexcept
+{
+    if (!(arc.radius > 0.0)) {
+        return 0.0;
+    }
+
+    const double sweep = arcSweepDegrees(arc);
+    if (sweep <= kArcSweepEpsilonDegrees) {
+        return 0.0;
+    }
+    return toRadians(sweep) * arc.radius;
+}
+
+double length(const Polyline& polyline) noexcept
+{
+    const auto& points = polyline.points;
+    if (points.size() < 2) {
+        return 0.0;
+    }
+
+    double total = 0.0;
+    for (std::size_t i = 1; i < points.size(); ++i) {
+        total += distance(points[i - 1], points[i]);
+    }
+    if (polyline.closed) {
+        total += distance(points.back(), points.front());
+    }
+    return total;
+}
+
+double length(const Shape& shape) noexcept
+{
+    return std::visit(
+        [](const auto& concrete) noexcept { return length(concrete); },
+        shape);
+}
+
+std::string_view kindName(const Shape& shape) noexcept
+{
+    return std::visit(
+        [](const auto& concrete) noexcept -> std::string_view {
+            using T = std::decay_t<decltype(concrete)>;
+            if constexpr (std::is_same_v<T, Line>) {
+                return "LINE";
+            } else if constexpr (std::is_same_v<T, Circle>) {
+                return "CIRCLE";
+            } else if constexpr (std::is_same_v<T, Arc>) {
+                return "ARC";
+            } else {
+                return "LWPOLYLINE";
+            }
+        },
+        shape);
+}
+
+}  // namespace xm::core

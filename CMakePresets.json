@@ -1,0 +1,66 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 21,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_CONFIGURATION_TYPES": "Debug;Release"
+      }
+    },
+    {
+      "name": "core-msvc",
+      "displayName": "Core layer (MSVC, no Qt)",
+      "description": "Builds and tests only the Qt-free geometry core. No vcvars64 needed.",
+      "inherits": "base"
+    },
+    {
+      "name": "mvp-msvc",
+      "displayName": "Full MVP (MSVC + Qt 6)",
+      "description": "Requires Qt 6.8.0 at D:/Qt/6.8.0/msvc2022_64. Use after the Qt app layer exists.",
+      "inherits": "base",
+      "cacheVariables": {
+        "XM_BUILD_APP": "ON",
+        "CMAKE_PREFIX_PATH": "D:/Qt/6.8.0/msvc2022_64"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "core-msvc",
+      "configurePreset": "core-msvc",
+      "configuration": "Release"
+    },
+    {
+      "name": "mvp-msvc",
+      "configurePreset": "mvp-msvc",
+      "configuration": "Release"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "core-msvc",
+      "configurePreset": "core-msvc",
+      "configuration": "Release",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "mvp-msvc",
+      "configurePreset": "mvp-msvc",
+      "configuration": "Release",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
+}

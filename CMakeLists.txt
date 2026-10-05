@@ -1,0 +1,51 @@
+cmake_minimum_required(VERSION 3.21)
+
+project(CDR2DXFWorkbench
+    VERSION 0.1.0
+    DESCRIPTION "CDR to DXF geometry conversion and analysis workbench"
+    LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+
+# Warnings are errors in this project: the geometry core must not accumulate
+# silent numeric or conversion defects.
+if(MSVC)
+    # Note: CMake already adds /source-charset:utf-8 on MSVC (CMAKE_CXX_FLAGS /
+    # CMAKE_MSVC_RUNTIME_LIBRARY handling), so adding /utf-8 here would collide
+    # with it (reporting D8016: incompatible command line options).
+    add_compile_options(/W4 /permissive- /EHsc /WX)
+else()
+    add_compile_options(-Wall -Wextra -Wpedantic -Werror)
+endif()
+
+# Keep executables and libraries in predictable locations so the acceptance
+# commands in docs/MVP_DESIGN.md stay stable.
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
+
+# Multi-config generators (Visual Studio) append a per-configuration
+# subdirectory; force a flat layout instead.
+foreach(config IN LISTS CMAKE_CONFIGURATION_TYPES)
+    string(TOUPPER "${config}" config_upper)
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${config_upper} "${CMAKE_BINARY_DIR}/bin")
+    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_${config_upper} "${CMAKE_BINARY_DIR}/lib")
+    set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_${config_upper} "${CMAKE_BINARY_DIR}/lib")
+endforeach()
+
+enable_testing()
+
+# The Qt 6 Widgets application layer is added slice by slice; it stays off until
+# src/app exists so that the core layer can be configured and tested on its own.
+option(XM_BUILD_APP "Build the Qt 6 Widgets application" OFF)
+
+add_subdirectory(src/core)
+add_subdirectory(tests/core)
+
+if(XM_BUILD_APP)
+    add_subdirectory(src/app)
+endif()
