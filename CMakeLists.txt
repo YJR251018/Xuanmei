@@ -1,3 +1,11 @@
+# The project itself needs no CMake newer than 3.21. The 3.25 requirement lives
+# in CMakePresets.json (cmakeMinimumRequired) and applies only when this project
+# is configured through a preset, because that is the only time CMake parses the
+# presets file: the file declares presets schema version 6, which CMake
+# understands from 3.25 onwards. Keeping the two versions independent is what
+# lets CMake 3.21-3.24 still configure the project directly with
+# `cmake -S . -B build`; raising this to 3.25 would reject those configurations
+# for a limitation that only the presets file has.
 cmake_minimum_required(VERSION 3.21)
 
 project(CDR2DXFWorkbench

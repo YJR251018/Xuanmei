@@ -142,10 +142,28 @@ public:
         };
     }
 
+    // A matrix is the identity only when every coefficient is a real finite
+    // number equal to its identity value within `tolerance`.
+    //
+    // The finiteness test is explicit and must not be folded into the
+    // comparison: with NaN coefficients, `std::abs(NaN - 1.0) > tolerance` is
+    // FALSE for every entry (all comparisons against NaN are false), so the
+    // loop would fall through and report a NaN matrix as the identity.
+    //
+    // A `tolerance` that is negative, NaN or infinite is rejected: a negative
+    // bound can never be satisfied, and a NaN or infinite bound would make the
+    // predicate meaningless instead of reporting the bad argument.
     bool isIdentity(double tolerance = 1e-12) const noexcept
     {
+        if (!std::isfinite(tolerance) || tolerance < 0.0) {
+            return false;
+        }
+
         static constexpr std::array<double, 6> kIdentity{1.0, 0.0, 0.0, 1.0, 0.0, 0.0};
         for (std::size_t i = 0; i < kIdentity.size(); ++i) {
+            if (!std::isfinite(values_[i])) {
+                return false;
+            }
             if (std::abs(values_[i] - kIdentity[i]) > tolerance) {
                 return false;
             }

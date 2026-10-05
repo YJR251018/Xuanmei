@@ -56,10 +56,107 @@ inline void reportFailure(const char* file, int line, const std::string& message
 // bound to fall below double resolution stay comparable. The scale factor is at
 // most |v|, so the effective ABSOLUTE bound is always `tolerance * |v|`; pass a
 // tolerance at or below the required absolute precision to stay exact.
+//
+// Because the bound grows with the magnitude, this function CANNOT verify an
+// absolute error bound. Use absoluteErrorWithin / CHECK_NEAR_ABS whenever the
+// requirement is stated as an absolute error (for example the 1e-9 mm bound on
+// the sample document total length).
 inline bool nearlyEqual(double actual, double expected, double tolerance)
 {
     const double scale = std::fmax(1.0, std::fmax(std::fabs(actual), std::fabs(expected)));
     return std::fabs(actual - expected) <= tolerance * scale;
+}
+
+// Strict absolute-error comparison: succeeds only when
+// |actual - expected| <= tolerance, with the bound NOT scaled by magnitude.
+//
+// Rejected without comparing when `tolerance` is not a real non-negative
+// number: a negative bound can never be met, and a NaN bound would silently
+// make `difference <= tolerance` false rather than reporting the bad argument.
+// Also rejects any non-finite operand or difference, so infinite inputs cannot
+// slip through `inf <= tolerance`.
+inline bool absoluteErrorWithin(double actual, double expected, double tolerance)
+{
+    if (!std::isfinite(tolerance) || tolerance < 0.0) {
+        return false;
+    }
+    const double difference = std::fabs(actual - expected);
+    return std::isfinite(difference) && difference <= tolerance;
+}
+
+// ---------------------------------------------------------------------------
+// Assertion helpers
+//
+// The CHECK_* macros hand each operand to these functions as a nullary closure.
+// Two reasons, both about what a macro must not do:
+//
+//   * A macro that declares its own temporary (the original form,
+//     `const double dsh_actual = static_cast<double>(actual);`) puts that name
+//     in scope inside the temporary's own initialiser. A caller expression that
+//     mentions the same name therefore reads the just-declared, uninitialised
+//     temporary instead of the caller's variable.
+//   * Passing the operands as ordinary function arguments would fix that, but
+//     it would also leave the evaluation ORDER unspecified, whereas the
+//     original macro evaluated `actual` and then `expected` as separate
+//     statements. Invoking the closures in order inside the helper restores
+//     that guarantee and its snapshot semantics, while still declaring no name
+//     in the caller's scope.
+//
+// The `...Text` parameters are the stringised source expressions, so failure
+// messages keep naming what the test actually wrote.
+// ---------------------------------------------------------------------------
+
+template <typename ActualFn, typename ExpectedFn>
+inline void checkEqual(ActualFn actualFn, ExpectedFn expectedFn,
+                       const char* actualText, const char* expectedText,
+                       const char* file, int line)
+{
+    const auto actual = actualFn();
+    const auto expected = expectedFn();
+    if (!(actual == expected)) {
+        std::ostringstream message;
+        message << std::setprecision(17) << actualText << " == " << expectedText
+                << " (actual: " << actual << ", expected: " << expected << ")";
+        reportFailure(file, line, message.str());
+    }
+}
+
+template <typename ActualFn, typename ExpectedFn, typename ToleranceFn>
+inline void checkNear(ActualFn actualFn, ExpectedFn expectedFn,
+                      ToleranceFn toleranceFn, const char* actualText,
+                      const char* expectedText, const char* toleranceText,
+                      const char* file, int line)
+{
+    const double actual = static_cast<double>(actualFn());
+    const double expected = static_cast<double>(expectedFn());
+    const double tolerance = static_cast<double>(toleranceFn());
+    if (!nearlyEqual(actual, expected, tolerance)) {
+        std::ostringstream message;
+        message << std::setprecision(17) << actualText << " ~= " << expectedText
+                << " (actual: " << actual << ", expected: " << expected
+                << ", tolerance: " << tolerance << " [" << toleranceText << "])";
+        reportFailure(file, line, message.str());
+    }
+}
+
+template <typename ActualFn, typename ExpectedFn, typename ToleranceFn>
+inline void checkNearAbs(ActualFn actualFn, ExpectedFn expectedFn,
+                         ToleranceFn toleranceFn, const char* actualText,
+                         const char* expectedText, const char* toleranceText,
+                         const char* file, int line)
+{
+    const double actual = static_cast<double>(actualFn());
+    const double expected = static_cast<double>(expectedFn());
+    const double tolerance = static_cast<double>(toleranceFn());
+    if (!absoluteErrorWithin(actual, expected, tolerance)) {
+        std::ostringstream message;
+        message << std::setprecision(17) << "|" << actualText << " - "
+                << expectedText << "| <= " << tolerance
+                << " (actual: " << actual << ", expected: " << expected
+                << ", abs error: " << std::fabs(actual - expected)
+                << ", tolerance: " << tolerance << " [" << toleranceText << "])";
+        reportFailure(file, line, message.str());
+    }
 }
 
 inline int runAll(int argc, char** argv)
@@ -115,32 +212,25 @@ inline int runAll(int argc, char** argv)
         }                                                                      \
     } while (false)
 
-// Evaluated regardless of `condition` so that side effects still happen.
+// Each operand is evaluated exactly once, unconditionally, in the caller's
+// scope and in the order `actual`, `expected`, `tolerance` (see the assertion
+// helpers above for why the operands are passed as closures).
 #define CHECK_EQ(actual, expected)                                             \
-    do {                                                                       \
-        const auto dsh_actual = (actual);                                      \
-        const auto dsh_expected = (expected);                                  \
-        if (!(dsh_actual == dsh_expected)) {                                   \
-            std::ostringstream dsh_message;                                    \
-            dsh_message << std::setprecision(17) << #actual " == " #expected   \
-                        << " (actual: " << dsh_actual                          \
-                        << ", expected: " << dsh_expected << ")";              \
-            ::dsh_test::reportFailure(__FILE__, __LINE__, dsh_message.str());  \
-        }                                                                      \
-    } while (false)
+    ::dsh_test::checkEqual([&] { return (actual); },                           \
+                           [&] { return (expected); }, #actual, #expected,     \
+                           __FILE__, __LINE__)
 
 #define CHECK_NEAR(actual, expected, tolerance)                                \
-    do {                                                                       \
-        const double dsh_actual = static_cast<double>(actual);                 \
-        const double dsh_expected = static_cast<double>(expected);             \
-        const double dsh_tolerance = static_cast<double>(tolerance);           \
-        if (!::dsh_test::nearlyEqual(dsh_actual, dsh_expected, dsh_tolerance)) {\
-            std::ostringstream dsh_message;                                    \
-            dsh_message << std::setprecision(17) << #actual " ~= " #expected   \
-                        << " (actual: " << dsh_actual                          \
-                        << ", expected: " << dsh_expected                      \
-                        << ", tolerance: " << dsh_tolerance                    \
-                        << " [" #tolerance "])";                               \
-            ::dsh_test::reportFailure(__FILE__, __LINE__, dsh_message.str());  \
-        }                                                                      \
-    } while (false)
+    ::dsh_test::checkNear([&] { return (actual); },                            \
+                          [&] { return (expected); },                          \
+                          [&] { return (tolerance); }, #actual, #expected,     \
+                          #tolerance, __FILE__, __LINE__)
+
+// Strict absolute-error assertion. Use this instead of CHECK_NEAR whenever the
+// requirement is an absolute error bound, because CHECK_NEAR scales its bound
+// by the magnitude of the values.
+#define CHECK_NEAR_ABS(actual, expected, tolerance)                            \
+    ::dsh_test::checkNearAbs([&] { return (actual); },                         \
+                             [&] { return (expected); },                       \
+                             [&] { return (tolerance); }, #actual, #expected,  \
+                             #tolerance, __FILE__, __LINE__)
