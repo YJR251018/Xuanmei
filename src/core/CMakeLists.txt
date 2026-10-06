@@ -3,6 +3,10 @@ add_library(xm_core STATIC
     geometry.hpp
     entity.hpp
     entity.cpp
+    document.hpp
+    document.cpp
+    sample_document.hpp
+    sample_document.cpp
 )
 
 target_include_directories(xm_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/..")

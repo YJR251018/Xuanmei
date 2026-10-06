@@ -4,7 +4,7 @@
 
 项目目标是读取 CorelDRAW 的 `.cdr` 文件，提取其中的二维几何轮廓，将其转换为 CAD 常用的 `.dxf` 格式，并完成图形预览、尺寸统计、轮廓检查和转换质量评估。
 
-> 当前状态：技术路线与原型验证阶段。仓库内已有 Python 功能原型，用于验证界面流程和基础 DXF 长度统计；正式版本计划使用 C++ 重构。
+> 当前状态：C++20 核心切片 1–2 已完成并通过审查。仓库已移除早期 Python/UI 原型；当前可用能力是几何值类型、闭式长度、文档模型与内建样图，尚不能读写 CDR/DXF，也没有正式 GUI。
 
 ## 一、项目背景
 
@@ -81,9 +81,25 @@ DXF 文件        长度、拓扑和误差结果
 | CDR 解析 | libcdr + librevenge | 读取 CDR 并接收绘图回调 |
 | DXF 输出 | 自研最小 DXF Writer | 输出所需二维实体，控制许可证和格式行为 |
 | 几何计算 | Open CASCADE Technology | 后续进行精确曲线、拓扑和容差分析 |
-| 自动测试 | GoogleTest/Catch2 | 验证转换和几何算法 |
+| 自动测试 | 项目内建最小测试框架（阶段 A） | 零外部依赖验证几何与文档模型；后续可迁移到 GoogleTest |
 
 OpenCASCADE 主要承担几何计算，而不作为本项目的默认 DXF 读取器。开源 OCCT 本体并未提供可直接使用的免费 DXF 数据交换模块。
+
+### 构建与测试
+
+本机的 CMake 位于 Visual Studio 安装目录，不在默认 `PATH` 中：
+
+```powershell
+$cmakeBin = 'D:\Visual Studio\Microsoft Visual Studio18Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin'
+$env:PATH = "$cmakeBin;$env:PATH"
+
+cmake --preset core-msvc
+cmake --build --preset core-msvc
+ctest --preset core-msvc --output-on-failure
+.\build\core-msvc\bin\xm_core_tests.exe
+```
+
+预期：编译零警告，CTest 100% 通过，当前测试运行器报告 66 个用例全部通过。
 
 ## 四、核心数据模型
 
@@ -110,27 +126,27 @@ CubicBezier
 
 统一使用 `double` 保存坐标，内部长度单位统一为毫米。
 
-## 五、计划目录结构
+## 五、目录结构
 
 ```text
-CDR2DXF-Workbench/
+Xuanmei/
 ├─ CMakeLists.txt
+├─ CMakePresets.json
 ├─ README.md
 ├─ docs/
-│  └─ CPP_TECHNICAL_ROUTE.md
+│  ├─ CPP_TECHNICAL_ROUTE.md
+│  ├─ DECISIONS.md
+│  ├─ MVP_DESIGN.md
+│  ├─ DEVELOPMENT_WORKFLOW.md
+│  └─ HANDOVER.md
 ├─ src/
-│  ├─ app/                  Qt 程序入口和主窗口
-│  ├─ domain/               GeometryDocument 与几何实体
-│  ├─ import/               CDR 导入接口及 libcdr 适配器
-│  ├─ export/               DXF Writer
-│  ├─ geometry/             长度、拓扑和容差算法
-│  └─ presentation/         图形场景、属性面板和日志
+│  └─ core/                 当前实现：纯 C++20 几何与文档模型
 ├─ tests/
-│  ├─ unit/                 单元测试
-│  ├─ integration/          格式转换测试
-│  └─ fixtures/             脱敏测试图样
-└─ prototype/               早期 Python 原型（后续整理）
+│  └─ core/                 零外部依赖 C++ 测试
+└─ build/                   本地生成目录（Git 忽略）
 ```
+
+后续模块按切片逐步加入 `src/core/`；Qt 界面只在核心分析与 DXF 往返链路稳定后加入 `src/app/`。
 
 ## 六、开发阶段
 
@@ -182,19 +198,22 @@ CDR2DXF-Workbench/
 
 - 技术可行性调研；
 - libcdr、DXF 和 OCC 的职责划分；
-- 基础界面流程原型；
-- ASCII DXF 基础实体解析原型；
-- 直线、圆和圆弧长度统计验证。
+- CMake + C++20 工程骨架；
+- `Point2d`、`Transform2d` 与四类基础图元；
+- 直线、圆、圆弧、折线的闭式长度；
+- `GeometryDocument`、图层、警告、连续实体 ID 与内建样图；
+- 66 个 C++ 单元/验收用例，MSVC `/W4 /permissive- /WX` 零警告通过。
 
 尚未完成：
 
-- C++/Qt 正式工程；
+- `Native2dAnalyzer`（逐实体指标、紧凑圆弧包围盒）；
+- ASCII DXF Writer/Reader 与往返一致性测试；
+- Qt 6 正式界面；
 - libcdr 原生接入；
-- DXF Writer；
 - OCC 几何分析；
 - 真实 CDR 样本的精度测试。
 
-当前开发环境尚未检测到 CMake、C++ 编译器、Qt 或 vcpkg。在开始正式 C++ 开发前，需要先完成工具链配置。
+当前开发环境已有 Visual Studio 2026、MSVC、CMake 4.2.3 与 Qt 6.8.0；vcpkg 尚未安装，阶段 C 接入 OCC 前再配置。
 
 ## 九、参考项目
 

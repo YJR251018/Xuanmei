@@ -3,13 +3,6 @@
 #include <type_traits>
 
 namespace xm::core {
-namespace {
-
-// Degenerate arcs (startDegrees == endDegrees) are rejected by design rather
-// than treated as a full turn, see the Arc comment in entity.hpp.
-constexpr double kArcSweepEpsilonDegrees = 1e-12;
-
-}  // namespace
 
 double length(const Line& line) noexcept
 {
@@ -31,7 +24,10 @@ double length(const Arc& arc) noexcept
     }
 
     const double sweep = arcSweepDegrees(arc);
-    if (sweep <= kArcSweepEpsilonDegrees) {
+    // Only an exactly zero sweep is degenerate. Using an arbitrary epsilon
+    // here would silently discard valid, very short arcs and contradict the
+    // closed-form length contract.
+    if (sweep == 0.0) {
         return 0.0;
     }
     return toRadians(sweep) * arc.radius;
@@ -61,10 +57,10 @@ double length(const Shape& shape) noexcept
         shape);
 }
 
-std::string_view kindName(const Shape& shape) noexcept
+const char* kindName(const Shape& shape) noexcept
 {
     return std::visit(
-        [](const auto& concrete) noexcept -> std::string_view {
+        [](const auto& concrete) noexcept -> const char* {
             using T = std::decay_t<decltype(concrete)>;
             if constexpr (std::is_same_v<T, Line>) {
                 return "LINE";

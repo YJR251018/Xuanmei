@@ -124,4 +124,4 @@ Qt MainWindow
 3. Qt 6 的 MSVC 2022 64-bit 套件。
 4. vcpkg，用于 OCC 和常规依赖；libcdr 在 Windows 上依赖较多，建议单独构建并固定版本。
 
-当前机器的 PATH 中尚未检测到 CMake、C++ 编译器、Qt 或 vcpkg，因此 C++ 工程生成后暂时无法在本机完成编译验收。
+当前机器已安装 Visual Studio 2026、MSVC、CMake 4.2.3 与 Qt 6.8.0；CMake 不在默认 `PATH`，可使用 VS 自带路径。vcpkg 尚未安装，阶段 C 接入 OCC 前再配置。

@@ -185,6 +185,18 @@ TEST(arc, small_sweep)
     CHECK_NEAR(xm::core::length(arc), xm::core::toRadians(1.0) * 100.0, kTolerance);
 }
 
+TEST(arc, sub_trillionth_degree_sweep_remains_nonzero)
+{
+    // A previous epsilon check treated every sweep <= 1e-12 degrees as a
+    // degenerate arc. Only an exactly zero sweep is degenerate by contract.
+    constexpr double sweepDegrees = 5e-13;
+    const Arc arc{pt(0.0, 0.0), 100.0, 0.0, sweepDegrees};
+    const double expected = xm::core::toRadians(xm::core::arcSweepDegrees(arc)) * arc.radius;
+
+    CHECK(xm::core::length(arc) > 0.0);
+    CHECK_NEAR_ABS(xm::core::length(arc), expected, 0.0);
+}
+
 // A full circle must be a Circle. An Arc with equal angles is degenerate and
 // must not silently become a full turn (docs/MVP_DESIGN.md section 5.2).
 TEST(arc, equal_angles_is_degenerate_and_not_a_full_circle)

@@ -12,27 +12,6 @@ CMakeFiles/
 *.dll
 *.lib
 
-# Python prototype caches
-__pycache__/
-*.py[cod]
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.tox/
-.nox/
-.coverage
-.coverage.*
-htmlcov/
-
-# Python virtual environments and packaging
-.venv/
-venv/
-env/
-ENV/
-dist/
-*.egg-info/
-.eggs/
-
 # Local configuration, credentials, and databases
 .env
 .env.*

@@ -78,7 +78,7 @@ Xuanmei/
    └─ fixtures/                      预留：脱敏图样
 ```
 
-`prototype/`（现为仓库根的 Python 原型）本次**不移动、不修改**，避免在动骨架的同时动历史代码。
+旧的 Python 原型与临时验证 UI 已于 2026-10-06 清理；仓库从此只保留 C++ 正式实现，避免两套行为逐渐分叉。
 
 ### 4.1 分片交付与评审
 
@@ -87,7 +87,7 @@ Xuanmei/
 | 切片 | 内容 | 状态 |
 |---|---|---|
 | 1 | CMake 工程骨架 + `geometry` + `entity` + 单元测试 | **已完成**（A1、A3 的闭合公式部分已验证） |
-| 2 | `document` + `sample_document` | 待评审后开始 |
+| 2 | `document` + `sample_document` | **已完成并评审**（`Layer`/`GeometryEntity`/`GeometryDocument`/`makeSampleDocument` + 单元测试） |
 | 3 | `native_analyzer`（含紧凑圆弧包围盒） | 待开始 |
 | 4 | `dxf_writer`（ASCII R12） | 待开始 |
 | 5 | `dxf_reader` + 往返一致性测试 | 待开始 |
@@ -322,7 +322,7 @@ GeometryDocument makeSampleDocument();          // 确定性，无随机
   - `Circle`：`2πr`
   - `Arc`：`r · radians(normalizeDegrees(end - start))`
   - `Polyline`：相邻顶点距离之和，闭合时补末点→首点
-- **包围盒取紧凑值**（圆弧按其实际角度范围求极值，而非整圆外接矩形），与 Python 原型偏保守的做法不同，属有意修正；
+- **包围盒取紧凑值**（圆弧按其实际角度范围求极值，而非整圆外接矩形）；
 - 采样点约定：若将来需要离散，圆与弧的采样点数按弦高误差 `<= 0.05 mm` 计算并向上取整（本 MVP 不写 SPLINE，不涉及）。
 
 ### 7.1 两档精度约定（不可混用）
@@ -403,11 +403,22 @@ GeometryDocument makeSampleDocument();          // 确定性，无随机
 - 实体总数：**7**（LINE ×4、CIRCLE ×1、ARC ×1、LWPOLYLINE ×1）
 - 图层数：**3**（`OUTLINE`、`HOLES`、`SLOT`）
 - 总长度：**2371.238898038 mm**（精确值 `1900 + 150π`：直线与折线 1900，圆 100π，弧 50π；已用独立探针程序逐项核对）
-- 包围盒：`minX=0, minY=-200, maxX=500, maxY=450` → **宽 500.000000 × 高 650.000000 mm**
+- 包围盒：`minX=0, minY=-200, maxX=550, maxY=450` → **宽 550.000000 × 高 650.000000 mm**
 - 闭合轮廓数：**1**
 - 文档警告：**0**
 
-包围盒极值来源：圆最右 `450+50=500`；圆最上 `150+50=200`；弧 0°→90° 覆盖 x∈[450,550] 但 r=100，故最上取 `350+100=450`；折线最下 `−200`。
+包围盒极值来源：
+
+| 极值 | 来源 | 计算 |
+|---|---|---|
+| `minX = 0` | 正方形左边、折线左边 | `min(0, 0, 400, 450) = 0` |
+| `minY = -200` | 折线下边 | 折线最下顶点 `y = -200` |
+| `maxX = 550` | **圆弧起点** | 弧起点在 0°：`450 + 100·cos 0° = 550` |
+| `maxY = 450` | **圆弧终点** | 弧终点在 90°：`350 + 100·sin 90° = 450` |
+
+因此宽 `550 - 0 = 550`、高 `450 - (-200) = 650`。
+
+> 修正记录：本节原先写作 `maxX=500` → 宽 500，理由是"圆最右 450+50=500"，**漏掉了圆弧自身的最右点**。弧心 `x=450`、半径 `100`、起始角 `0°`，起点即 `(550, 350)`，故 `maxX` 必须取 550。原注释中"弧覆盖 x∈[450,550]"与"故最上取 350+100=450"只推导了 `maxY`，未推导 `maxX`，属自相矛盾。该错误由独立重算与人工核图发现。
 
 ## 9. 界面设计（`src/app`）
 
@@ -461,8 +472,8 @@ ctest --preset mvp-msvc --output-on-failure
 
 **预期结果**
 
-- `core-msvc`：配置与编译退出码 0、无警告；`100% tests passed`；`xm_core_tests.exe` 输出 `ran 33 test(s), 33 passed, 0 failed`（切片 1 实测值，随切片递增）；
-- `mvp-msvc --selftest`：输出含 `entities=7  layers=3  closed=1  warnings=0`、`totalLength=2371.238898038`、`bounds=500.000000 x 650.000000`；
+- `core-msvc`：配置与编译退出码 0、无警告；`100% tests passed`；`xm_core_tests.exe` 输出 `ran 66 test(s), 66 passed, 0 failed`（切片 2 评审后实测值，随切片递增）；
+- `mvp-msvc --selftest`：输出含 `entities=7  layers=3  closed=1  warnings=0`、`totalLength=2371.238898038`、`bounds=550.000000 x 650.000000`；
 - 界面：窗口显示样图（方框 + 圆 + 四分之一弧 + 下方矩形），指标与实体表与上表一致。
 
 ## 11. 依赖与许可证
@@ -470,7 +481,7 @@ ctest --preset mvp-msvc --output-on-failure
 | 依赖 | 版本 | 许可证 | 说明 |
 |---|---|---|---|
 | MSVC (Visual Studio 2026 Community) | 14.44 / 14.51 | 专有（免费 Community） | 本机已装；VS 生成器默认选用 14.44 |
-| CMake | 3.31（VS 自带） | BSD-3-Clause | 本机已装；不在 PATH 中，预设内可直接调用 |
+| CMake | 4.2.3-msvc3（VS 自带） | BSD-3-Clause | 本机已装；不在 PATH 中，需要使用 VS 自带路径或先加入 PATH |
 | Ninja | VS 自带 | Apache-2.0 | 本机已装；切片 1 使用 VS 生成器，暂不需要 |
 | Qt 6 | **6.8 LTS**（`win64_msvc2022_64`） | LGPL-3.0（动态链接） | 本次安装到 `D:\Qt\6.8.0\msvc2022_64`；CI 或镜像不可用时改用官方源 `--base https://download.qt.io` |
 

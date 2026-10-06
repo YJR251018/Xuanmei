@@ -7,7 +7,8 @@
 
 #pragma once
 
-#include <string_view>
+#include <cstdint>
+#include <string>
 #include <variant>
 #include <vector>
 
@@ -45,6 +46,20 @@ struct Polyline {
 
 using Shape = std::variant<Line, Circle, Arc, Polyline>;
 
+// A shape together with its document-level identity and provenance.
+//
+// `id` is assigned by GeometryDocument::add() and increases from 1; `layer`
+// defaults to "0"; `transform` defaults to the identity and records the
+// original object transform on import (evaluation of non-identity transforms
+// belongs to the CDR import stage, see docs/MVP_DESIGN.md section 6.3).
+struct GeometryEntity {
+    std::uint64_t   id = 0;          // 文档内原始对象编号
+    std::string     layer = "0";
+    Shape           shape;
+    Transform2d     transform;       // 默认恒等；导入时记录原始变换
+    std::vector<std::string> warnings;  // 该实体的转换警告
+};
+
 // ---------------------------------------------------------------------------
 // Closed-form lengths
 //
@@ -69,6 +84,7 @@ inline double arcSweepDegrees(const Arc& arc) noexcept
 
 // DXF entity name for the active alternative.
 //   Line -> "LINE", Circle -> "CIRCLE", Arc -> "ARC", Polyline -> "LWPOLYLINE"
-std::string_view kindName(const Shape& shape) noexcept;
+// Returns a pointer to a string literal; never null.
+const char* kindName(const Shape& shape) noexcept;
 
 }  // namespace xm::core
