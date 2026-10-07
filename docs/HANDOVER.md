@@ -1,8 +1,8 @@
 # 项目交接
 
-- 更新日期：2026-10-06
+- 更新日期：2026-10-07
 - 技术主线：C++20 + CMake；Qt 6 UI 尚未开始
-- 本轮审查前基线：`92ab6bc`
+- 切片 3 基线：`2e9a949`
 
 ## 1. 当前真实能力
 
@@ -13,20 +13,26 @@
 - `Line`、`Circle`、`Arc`、`Polyline` 与闭式长度；
 - `GeometryEntity`、`Layer`、`GeometryDocument`；
 - 7 实体/3 图层内建样图；
-- 66 个 C++ 测试全部通过。
+- `Native2dAnalyzer` 的逐实体指标、计数、总长、闭合数、警告汇总与紧凑包围盒；
+- 86 个 C++ 测试全部通过。
 
-当前不能做：读取 CDR、读写 DXF、计算完整分析报告、显示 Qt 界面、调用 OCC。README 中的相应条目是目标，不是已交付功能。
+当前不能做：读取 CDR、读写 DXF、显示 Qt 界面、调用 OCC。README 中的相应条目是目标，不是已交付功能。
 
-## 2. 本轮完成内容
+## 2. 最近完成内容
 
 - 审查并接收切片 2；
 - 修复极小正扫角被误判为零长度；
 - 修复 `GeometryDocument::add()` 异常时提前消耗 ID；
-- 补齐公共头文件直接依赖，优化 `unit()` getter；
+- 补齐公共头文件直接依赖；
 - 删除早期 Python 转换/分析/UI 原型与临时验证 UI；
 - 更新 README、MVP 状态、ADR、代码审查记录和后续开发流程。
+- 完成切片 3 `Native2dAnalyzer`；
+- 增加紧凑圆弧包围盒、坏数据隔离、变换告警与警告汇总；
+- 为 `GeometryDocument::add()` 增加可选逐实体警告入口；
+- 新增 20 个相关用例并完成本切片审查。
 
-详细结论见 `docs/CODE_REVIEW_2026-10-06.md`，执行流程见 `docs/DEVELOPMENT_WORKFLOW.md`。
+切片 2 审查见 `docs/CODE_REVIEW_2026-10-06.md`，切片 3 审查见
+`docs/CODE_REVIEW_2026-10-07_NATIVE_ANALYZER.md`，执行流程见 `docs/DEVELOPMENT_WORKFLOW.md`。
 
 ## 3. 构建与验收
 
@@ -40,30 +46,19 @@ ctest --preset core-msvc --output-on-failure
 .\build\core-msvc\bin\xm_core_tests.exe
 ```
 
-预期：配置/编译退出码 0、零警告；CTest 100% 通过；运行器输出 66 个用例全部通过。
+预期：配置/编译退出码 0、零警告；CTest 100% 通过；运行器输出 86 个用例全部通过。
 
 ## 4. 下一项任务
 
-下一切片是 `Native2dAnalyzer`，只实现：
-
-- 逐实体长度与类型计数；
-- 总长度；
-- 紧凑包围盒；
-- 闭合折线数量；
-- 文档警告汇总。
-
-圆弧包围盒必须判断 0°/90°/180°/270° 是否实际落在逆时针扫角内，不能用整圆外接矩形。内建样图验收值为：实体 7、图层 3、总长 `1900 + 150π`、包围盒 `(0,-200)–(550,450)`、闭合数 1、警告 0。
-
-不要在该切片同时加入 DXF、Qt、libcdr、OCC 或端点吸附。
+下一切片是最小 ASCII DXF Writer，只实现 HEADER/TABLES/ENTITIES/EOF 骨架以及 LINE、CIRCLE、ARC、LWPOLYLINE 四种实体写出。要求固定六位小数、组码/值严格成对、图层与毫米单位信息明确，不加入 Reader、Qt、libcdr、OCC 或拓扑修复。
 
 ## 5. 后续顺序
 
-1. 切片 3：`Native2dAnalyzer`；
-2. 切片 4：最小 ASCII DXF Writer；
-3. 切片 5：Reader + 写出/回读一致性；
-4. 切片 6：Qt 6 UI + `--selftest`；
-5. 阶段 B：libcdr/librevenge；
-6. 阶段 C：OCC 与几何修复。
+1. 切片 4：最小 ASCII DXF Writer；
+2. 切片 5：Reader + 写出/回读一致性；
+3. 切片 6：Qt 6 UI + `--selftest`；
+4. 阶段 B：libcdr/librevenge；
+5. 阶段 C：OCC 与几何修复。
 
 每片完成后先审查再进入下一片。具体门槛与分支约定见 `docs/DEVELOPMENT_WORKFLOW.md`。
 

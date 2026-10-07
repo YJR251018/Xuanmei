@@ -60,7 +60,7 @@ Xuanmei/
 │  │  ├─ geometry.hpp                Point2d、向量/角度工具、Transform2d
 │  │  ├─ entity.hpp/.cpp             Line/Circle/Arc/Polyline、Shape、闭式长度、kindName
 │  │  ├─ document.hpp/.cpp           GeometryDocument、Layer、警告           ← 切片 2
-│  │  ├─ native_analyzer.hpp/.cpp    指标与逐实体长度                        ← 切片 3
+│  │  ├─ native_analyzer.hpp/.cpp    指标、逐实体长度与紧凑包围盒            ← 切片 3
 │  │  ├─ dxf_writer.hpp/.cpp         ASCII DXF R12 写出                      ← 切片 4
 │  │  ├─ dxf_reader.hpp/.cpp         ASCII DXF R12 读入                      ← 切片 5
 │  │  └─ sample_document.hpp/.cpp    内建样图（用于验收与演示）              ← 切片 2
@@ -88,7 +88,7 @@ Xuanmei/
 |---|---|---|
 | 1 | CMake 工程骨架 + `geometry` + `entity` + 单元测试 | **已完成**（A1、A3 的闭合公式部分已验证） |
 | 2 | `document` + `sample_document` | **已完成并评审**（`Layer`/`GeometryEntity`/`GeometryDocument`/`makeSampleDocument` + 单元测试） |
-| 3 | `native_analyzer`（含紧凑圆弧包围盒） | 待开始 |
+| 3 | `native_analyzer`（含紧凑圆弧包围盒） | **已完成并评审**（逐实体/总长、类型与图层计数、闭合数、警告汇总、坏数据隔离） |
 | 4 | `dxf_writer`（ASCII R12） | 待开始 |
 | 5 | `dxf_reader` + 往返一致性测试 | 待开始 |
 | 6 | Qt 6 界面 + `--selftest` | 待开始 |
@@ -150,7 +150,7 @@ struct Arc      { Point2d center; double radius = 0.0;
 struct Polyline { std::vector<Point2d> points; bool closed = false; };
 
 // 圆周角约定：角度为度、逆时针为正、0° 指向 +X，与 DXF ARC 的组码 50/51 完全一致。
-// 圆弧扫角 = normalizeDegrees(endDegrees - startDegrees)，落在 (0, 360]；
+// 圆弧扫角 = normalizeDegrees(endDegrees - startDegrees)，落在 [0, 360)；
 // 整圆必须使用 Circle，不允许用 start==end 的 Arc 表示（避免 0° 与 360° 歧义）。
 
 using Shape = std::variant<Line, Circle, Arc, Polyline>;
@@ -179,7 +179,8 @@ public:
     static constexpr const char* kUnitMillimeter = "mm";
 
     std::uint64_t add(Shape shape, std::string layer = "0",
-                      Transform2d transform = Transform2d::identity());
+                      Transform2d transform = Transform2d::identity(),
+                      std::vector<std::string> warnings = {});
     void addLayer(Layer layer);
     void addWarning(std::string message);      // 文档级警告（不绑定单一实体）
 
@@ -209,6 +210,7 @@ struct DocumentMetrics {
     std::map<std::string, std::size_t> countsByKind;
     std::map<std::string, std::size_t> countsByLayer;
     double totalLength = 0.0;
+    std::size_t closedCount = 0;
     bool   hasBounds = false;
     double minX = 0, minY = 0, maxX = 0, maxY = 0;
     std::vector<EntityMetric> perEntity;
@@ -229,6 +231,15 @@ public:
 };
 }
 ```
+
+分析器行为：
+
+- 计数覆盖全部实体；逐实体警告按实体顺序追加在文档警告之后；
+- 非恒等变换暂不求值，仍按原始几何统计，并追加约定警告；
+- 非有限坐标、非正半径或计算结果不可表示时，该实体仍计数，但不污染总长度与包围盒，并标记警告；
+- 空折线与零扫角圆弧不产生包围盒；单点折线产生零宽高包围盒；
+- `closedCount` 按闭合 `Polyline` 标志统计；
+- 圆弧包围盒包含起终点及实际扫角经过的 0°/90°/180°/270° 基数方向。
 
 ### 5.5 DXF 写出（`dxf_writer.hpp`）
 
@@ -472,7 +483,7 @@ ctest --preset mvp-msvc --output-on-failure
 
 **预期结果**
 
-- `core-msvc`：配置与编译退出码 0、无警告；`100% tests passed`；`xm_core_tests.exe` 输出 `ran 66 test(s), 66 passed, 0 failed`（切片 2 评审后实测值，随切片递增）；
+- `core-msvc`：配置与编译退出码 0、无警告；`100% tests passed`；`xm_core_tests.exe` 输出 `ran 86 test(s), 86 passed, 0 failed`（切片 3 评审后实测值，随切片递增）；
 - `mvp-msvc --selftest`：输出含 `entities=7  layers=3  closed=1  warnings=0`、`totalLength=2371.238898038`、`bounds=550.000000 x 650.000000`；
 - 界面：窗口显示样图（方框 + 圆 + 四分之一弧 + 下方矩形），指标与实体表与上表一致。
 

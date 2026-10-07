@@ -4,7 +4,7 @@
 
 项目目标是读取 CorelDRAW 的 `.cdr` 文件，提取其中的二维几何轮廓，将其转换为 CAD 常用的 `.dxf` 格式，并完成图形预览、尺寸统计、轮廓检查和转换质量评估。
 
-> 当前状态：C++20 核心切片 1–2 已完成并通过审查。仓库已移除早期 Python/UI 原型；当前可用能力是几何值类型、闭式长度、文档模型与内建样图，尚不能读写 CDR/DXF，也没有正式 GUI。
+> 当前状态：C++20 核心切片 1–3 已完成并通过审查。当前可用能力是几何值类型、闭式长度、文档模型、内建样图，以及逐实体指标和紧凑包围盒分析；尚不能读写 CDR/DXF，也没有正式 GUI。
 
 ## 一、项目背景
 
@@ -99,7 +99,7 @@ ctest --preset core-msvc --output-on-failure
 .\build\core-msvc\bin\xm_core_tests.exe
 ```
 
-预期：编译零警告，CTest 100% 通过，当前测试运行器报告 66 个用例全部通过。
+预期：编译零警告，CTest 100% 通过，当前测试运行器报告 86 个用例全部通过。
 
 ## 四、核心数据模型
 
@@ -140,7 +140,7 @@ Xuanmei/
 │  ├─ DEVELOPMENT_WORKFLOW.md
 │  └─ HANDOVER.md
 ├─ src/
-│  └─ core/                 当前实现：纯 C++20 几何与文档模型
+│  └─ core/                 当前实现：纯 C++20 几何、文档模型与原生分析器
 ├─ tests/
 │  └─ core/                 零外部依赖 C++ 测试
 └─ build/                   本地生成目录（Git 忽略）
@@ -202,11 +202,11 @@ Xuanmei/
 - `Point2d`、`Transform2d` 与四类基础图元；
 - 直线、圆、圆弧、折线的闭式长度；
 - `GeometryDocument`、图层、警告、连续实体 ID 与内建样图；
-- 66 个 C++ 单元/验收用例，MSVC `/W4 /permissive- /WX` 零警告通过。
+- `Native2dAnalyzer`：逐实体指标、计数、总长度、闭合数、警告汇总和紧凑包围盒；
+- 86 个 C++ 单元/验收用例，MSVC `/W4 /permissive- /WX` 零警告通过。
 
 尚未完成：
 
-- `Native2dAnalyzer`（逐实体指标、紧凑圆弧包围盒）；
 - ASCII DXF Writer/Reader 与往返一致性测试；
 - Qt 6 正式界面；
 - libcdr 原生接入；

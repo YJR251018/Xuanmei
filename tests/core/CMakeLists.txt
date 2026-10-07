@@ -2,6 +2,7 @@ add_executable(xm_core_tests
     main.cpp
     test_geometry.cpp
     test_document.cpp
+    test_native_analyzer.cpp
     dsh_test.hpp
 )
 

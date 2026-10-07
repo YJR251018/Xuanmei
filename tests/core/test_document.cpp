@@ -154,6 +154,18 @@ TEST(document, add_preserves_explicit_layer_and_transform)
     CHECK_NEAR(moved.y, 22.0, kTolerance);
 }
 
+TEST(document, add_preserves_explicit_entity_warnings)
+{
+    GeometryDocument document;
+    document.add(Line{pt(0.0, 0.0), pt(1.0, 0.0)}, "CUT",
+                 Transform2d::identity(), {"first", "second"});
+
+    const GeometryEntity& entity = document.entities().front();
+    CHECK_EQ(entity.warnings.size(), std::size_t{2});
+    CHECK_EQ(entity.warnings[0], std::string("first"));
+    CHECK_EQ(entity.warnings[1], std::string("second"));
+}
+
 TEST(document, add_does_not_disturb_earlier_entities)
 {
     GeometryDocument document;

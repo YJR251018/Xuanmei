@@ -4,7 +4,9 @@
 
 namespace xm::core {
 
-std::uint64_t GeometryDocument::add(Shape shape, std::string layer, Transform2d transform)
+std::uint64_t GeometryDocument::add(Shape shape, std::string layer,
+                                    Transform2d transform,
+                                    std::vector<std::string> warnings)
 {
     const std::uint64_t id = nextId_;
     GeometryEntity entity;
@@ -12,6 +14,7 @@ std::uint64_t GeometryDocument::add(Shape shape, std::string layer, Transform2d 
     entity.layer = std::move(layer);
     entity.shape = std::move(shape);
     entity.transform = transform;
+    entity.warnings = std::move(warnings);
 
     entities_.push_back(std::move(entity));
     ++nextId_;

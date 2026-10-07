@@ -7,6 +7,8 @@ add_library(xm_core STATIC
     document.cpp
     sample_document.hpp
     sample_document.cpp
+    native_analyzer.hpp
+    native_analyzer.cpp
 )
 
 target_include_directories(xm_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/..")

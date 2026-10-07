@@ -31,10 +31,11 @@ public:
     // Appends an entity and returns its assigned id.
     //
     // Ids are allocated monotonically starting at 1, so the first added entity
-    // has id 1 and the n-th has id n. `layer` defaults to "0" and `transform`
-    // to the identity.
+    // has id 1 and the n-th has id n. `layer` defaults to "0", `transform`
+    // to the identity, and `warnings` to an empty list.
     std::uint64_t add(Shape shape, std::string layer = "0",
-                      Transform2d transform = Transform2d::identity());
+                      Transform2d transform = Transform2d::identity(),
+                      std::vector<std::string> warnings = {});
 
     // Appends a layer. This is a plain append with no de-duplication: the
     // caller is responsible for adding each layer name once. The signature
