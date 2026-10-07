@@ -45,6 +45,14 @@ foreach(config IN LISTS CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_${config_upper} "${CMAKE_BINARY_DIR}/lib")
 endforeach()
 
+# The flat multi-config output layout keeps the documented Release paths
+# stable, but different configurations must not overwrite the same file:
+# otherwise a Debug build can leave a debug-linked .exe that a subsequent
+# incremental Release build incorrectly considers up to date.
+set(CMAKE_DEBUG_POSTFIX "d")
+set(CMAKE_RELWITHDEBINFO_POSTFIX "rd")
+set(CMAKE_MINSIZEREL_POSTFIX "s")
+
 enable_testing()
 
 # The Qt 6 Widgets application layer is added slice by slice; it stays off until
@@ -56,4 +64,5 @@ add_subdirectory(tests/core)
 
 if(XM_BUILD_APP)
     add_subdirectory(src/app)
+    add_subdirectory(tests/app)
 endif()

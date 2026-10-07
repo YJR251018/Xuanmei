@@ -4,7 +4,7 @@
 
 项目目标是读取 CorelDRAW 的 `.cdr` 文件，提取其中的二维几何轮廓，将其转换为 CAD 常用的 `.dxf` 格式，并完成图形预览、尺寸统计、轮廓检查和转换质量评估。
 
-> 当前状态：C++20 核心切片 1–5 已完成并通过审查。当前可用能力包括几何值类型、闭式长度、文档模型、分析器，以及本项目 ASCII DXF R12 子集的写出与回读；尚不能读取 CDR，也没有正式 GUI。
+> 当前状态：C++20/Qt 6 MVP 切片 1–6 已完成并通过审查。程序可以生成样图、写出并回读 ASCII DXF R12、分析几何指标，并在桌面窗口中预览结果；尚不能读取 CDR，也未接入 OCC 拓扑分析。
 
 ## 一、项目背景
 
@@ -98,9 +98,15 @@ cmake --preset core-msvc
 cmake --build --preset core-msvc
 ctest --preset core-msvc --output-on-failure
 .\build\core-msvc\bin\xm_core_tests.exe
+
+cmake --preset mvp-msvc
+cmake --build --preset mvp-msvc
+ctest --preset mvp-msvc --output-on-failure
+.\build\mvp-msvc\bin\cdr2dxf_workbench.exe --selftest
+.\build\mvp-msvc\bin\cdr2dxf_workbench.exe
 ```
 
-预期：编译零警告，CTest 100% 通过，当前测试运行器报告 119 个用例全部通过。
+预期：编译零警告；Core 119/119、应用服务 6/6；`mvp-msvc` 的 4 个 CTest 目标全部通过。无参数启动桌面界面，`--selftest` 执行无界面往返验收。
 
 ## 四、核心数据模型
 
@@ -142,13 +148,15 @@ Xuanmei/
 │  ├─ DEVELOPMENT_WORKFLOW.md
 │  └─ HANDOVER.md
 ├─ src/
-│  └─ core/                 当前实现：纯 C++20 几何、分析器与 R12 Writer/Reader
+│  ├─ core/                 纯 C++20 几何、分析器与 R12 Writer/Reader
+│  └─ app/                  Qt 6 Widgets UI 与无 Qt 的应用服务
 ├─ tests/
-│  └─ core/                 零外部依赖 C++ 测试
+│  ├─ core/                 零外部依赖 C++ 核心测试
+│  └─ app/                  应用服务测试
 └─ build/                   本地生成目录（Git 忽略）
 ```
 
-后续模块按切片逐步加入 `src/core/`；Qt 界面只在核心分析与 DXF 往返链路稳定后加入 `src/app/`。
+第三方格式适配继续通过 `GeometryDocument` 边界接入；Qt 界面只消费应用服务，不重复实现 DXF 或几何算法。
 
 ## 六、开发阶段
 
@@ -208,11 +216,12 @@ Xuanmei/
 - `MinimalDxfWriter`：严格 ASCII DXF R12，支持 LINE、CIRCLE、ARC 和传统 POLYLINE 序列，固定六位小数；
 - `readDxf` / `readDxfFile`：宽容读取 Writer 子集，区分致命结构错误与可恢复内容问题；
 - Writer → Reader 往返验收覆盖实体、图层、逐实体长度、总长度和包围盒；
-- 119 个 C++ 单元/验收用例，MSVC `/W4 /permissive- /WX` 零警告通过。
+- Qt 6 Widgets 主窗口：几何预览、指标、实体表、警告日志、打开/导出 DXF、适应/重置视图；
+- `WorkbenchSession` 统一 GUI 与命令行工作流，`--selftest` 和 UI 渲染烟雾测试可自动验收；
+- 125 个 C++ 单元用例（Core 119 + App 6），MSVC `/W4 /permissive- /WX` 零警告通过。
 
 尚未完成：
 
-- Qt 6 正式界面；
 - libcdr 原生接入；
 - OCC 几何分析；
 - 真实 CDR 样本的精度测试。
@@ -233,4 +242,6 @@ Xuanmei/
 
 项目许可证尚未最终确定。
 
-libcdr 使用 MPL-2.0；libdxfrw 使用 GPL-2.0-or-later。正式发布前需要根据最终依赖方式确认许可证兼容性。本项目第一阶段倾向于自行实现有限范围的 DXF Writer，减少不必要的许可证约束。
+Qt 6 当前采用动态链接；本地构建会把可替换的 Qt DLL 与平台插件部署到可执行文件旁。开发构建不等于可直接发布的软件包：正式分发前仍需完成 Qt 源码提供/书面要约、许可证与致谢、第三方组件清单和替换说明等检查，详见 [`docs/QT_DEPLOYMENT.md`](docs/QT_DEPLOYMENT.md)。项目自身许可证仍待负责人确定。
+
+libcdr 使用 MPL-2.0；libdxfrw 使用 GPL-2.0-or-later。本项目第一阶段未链接 libdxfrw，以避免过早扩大许可证边界。

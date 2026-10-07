@@ -22,6 +22,10 @@ cmake --preset core-msvc
 cmake --build --preset core-msvc
 ctest --preset core-msvc --output-on-failure
 .\build\core-msvc\bin\xm_core_tests.exe
+cmake --preset mvp-msvc
+cmake --build --preset mvp-msvc
+ctest --preset mvp-msvc --output-on-failure
+.\build\mvp-msvc\bin\cdr2dxf_workbench.exe --selftest
 git diff --check
 git status --short
 ```
@@ -62,13 +66,15 @@ git status --short
 范围：解析项目 Writer 产生的 R12 子集；空文件、二进制、奇数组码为致命错误，缺段尾、缺 EOF、未知实体与损坏字段可恢复。
 mesh/polyface 标志和非零 bulge 不会被静默压平成直线折线。往返测试覆盖实体与图层、逐实体长度、总长度和包围盒；专项测试 16 个，全量 119 个。
 
-### 切片 6：Qt 6 界面
+### 切片 6：Qt 6 界面（已完成并评审）
 
-切片 3–5 已稳定，可以开始。UI 只消费应用服务和 `GeometryDocument`，不得自行解析 DXF 或重复实现长度/包围盒算法。实现前先确认 Qt 动态链接与发布许可证方案。
+`WorkbenchSession` 统一样图往返、加载、导出与指标；Qt 窗口只负责预览和交互。自动验收包括
+Core 119 项、App 6 项、`--selftest` 和 offscreen UI 渲染烟雾测试，另用原生 Windows 平台复核中文和圆弧方向。
+Qt 动态部署与正式发布前清单见 `docs/QT_DEPLOYMENT.md`。
 
 ### 阶段 B/C
 
-- 阶段 B：libcdr/librevenge 适配器，把第三方回调转换为 `GeometryDocument`；
+- 阶段 B（下一项）：先固定 libcdr/librevenge 版本、构建和回调契约，再实现适配器，把第三方回调转换为 `GeometryDocument`；
 - 阶段 C：OpenCASCADE 分析器，处理精确曲线、拓扑和 Shape Healing；
 - vcpkg 在阶段 C 前再引入，避免提前扩大构建面。
 
@@ -76,7 +82,8 @@ mesh/polyface 标志和非零 bulge 不会被静默压平成直线折线。往�
 
 ```text
 src/core/       纯 C++20 领域模型、算法、最小 DXF 子集
-src/app/        Qt 应用层（切片 6 才创建）
+src/app/        Qt 应用层与不依赖 Qt 的 WorkbenchSession
+tests/app/      应用服务测试；GUI 结构由可执行文件烟雾测试覆盖
 tests/core/     与 core 一一对应的测试
 tests/fixtures/ 可公开、脱敏且有期望值说明的样本
 docs/           契约、ADR、审查与交接

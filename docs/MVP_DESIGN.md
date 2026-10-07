@@ -91,7 +91,7 @@ Xuanmei/
 | 3 | `native_analyzer`（含紧凑圆弧包围盒） | **已完成并复审**（逐实体/总长、类型与图层计数、声明闭合数、带实体 ID 的警告、坏数据隔离） |
 | 4 | `dxf_writer`（ASCII R12） | **已完成并评审**（四类内部图元、图层、单位、文件入口和严格失败路径） |
 | 5 | `dxf_reader` + 往返一致性测试 | **已完成并评审**（宽容读取 R12 子集，关键错误路径与完整指标往返已验证） |
-| 6 | Qt 6 界面 + `--selftest` | 待开始 |
+| 6 | Qt 6 界面 + `--selftest` | **已完成并评审**（真实 DXF 往返启动、预览/指标/实体表/日志、自动 UI 烟雾测试） |
 
 切片 1 验收结果：
 
@@ -487,12 +487,14 @@ cmake --preset mvp-msvc
 cmake --build --preset mvp-msvc
 ctest --preset mvp-msvc --output-on-failure
 .\build\mvp-msvc\bin\cdr2dxf_workbench.exe --selftest   # 无界面自检
+.\build\mvp-msvc\bin\cdr2dxf_workbench.exe --ui-smoketest # offscreen 渲染与控件结构检查
 .\build\mvp-msvc\bin\cdr2dxf_workbench.exe              # 界面
 ```
 
 **预期结果**
 
 - `core-msvc`：配置与编译退出码 0、无警告；`100% tests passed`；`xm_core_tests.exe` 输出 `ran 119 test(s), 119 passed, 0 failed`（切片 5 评审后实测值，随切片递增）；
+- `mvp-msvc`：CTest 4/4；`xm_app_tests.exe` 输出 `ran 6 test(s), 6 passed, 0 failed`；
 - `mvp-msvc --selftest`：输出含 `entities=7  layers=3  closed=1  warnings=0`、`totalLength=2371.238898038`、`bounds=550.000000 x 650.000000`；
 - 界面：窗口显示样图（方框 + 圆 + 四分之一弧 + 下方矩形），指标与实体表与上表一致。
 
@@ -505,7 +507,7 @@ ctest --preset mvp-msvc --output-on-failure
 | Ninja | VS 自带 | Apache-2.0 | 本机已装；切片 1 使用 VS 生成器，暂不需要 |
 | Qt 6 | **6.8 LTS**（`win64_msvc2022_64`） | LGPL-3.0（动态链接） | 本次安装到 `D:\Qt\6.8.0\msvc2022_64`；CI 或镜像不可用时改用官方源 `--base https://download.qt.io` |
 
-- Qt 采用**动态链接**，符合 LGPL-3.0 使用方式；发布时需附许可证文本并允许用户替换 Qt 库。这一点应在确定项目许可证前记录（后续追加 ADR）。
+- Qt 采用**动态链接**，构建目录中的 DLL 可替换；这只是工程选择，不代表自动满足 LGPL-3.0。正式分发还需完成源码/书面要约、许可证、致谢、第三方组件和替换说明清单，见 ADR-009 与 `docs/QT_DEPLOYMENT.md`。
 - 单元测试框架：本 MVP **内置极简断言头** `tests/core/dsh_test.hpp`（仅标准库，无外部依赖），以便在无 vcpkg 的环境下完成验收。ADR-002 已声明第一阶段避免不必要依赖；待 vcpkg 落地后再迁移到 GoogleTest/Catch2，测试用例的 `TEST(...)` 结构保持不变以便平滑迁移。
 - 仍未引入 libcdr、libdxfrw、OCC —— 全部留给阶段 B/C。
 
