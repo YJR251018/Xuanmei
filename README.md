@@ -4,7 +4,7 @@
 
 项目目标是读取 CorelDRAW 的 `.cdr` 文件，提取其中的二维几何轮廓，将其转换为 CAD 常用的 `.dxf` 格式，并完成图形预览、尺寸统计、轮廓检查和转换质量评估。
 
-> 当前状态：C++20 核心切片 1–3 已完成并通过审查。当前可用能力是几何值类型、闭式长度、文档模型、内建样图，以及逐实体指标和紧凑包围盒分析；尚不能读写 CDR/DXF，也没有正式 GUI。
+> 当前状态：C++20 核心切片 1–5 已完成并通过审查。当前可用能力包括几何值类型、闭式长度、文档模型、分析器，以及本项目 ASCII DXF R12 子集的写出与回读；尚不能读取 CDR，也没有正式 GUI。
 
 ## 一、项目背景
 
@@ -64,9 +64,10 @@ GeometryDocument
 DXF Writer      Geometry Analyzer
    │               │
    ▼               ▼
-DXF 文件        长度、拓扑和误差结果
-   │               │
-   └───────┬───────┘
+DXF 文件        长度、包围盒和警告
+   │               ▲
+   ▼               │
+DXF Reader ────────┘
            ▼
      Qt 6 上位机界面
 ```
@@ -99,21 +100,22 @@ ctest --preset core-msvc --output-on-failure
 .\build\core-msvc\bin\xm_core_tests.exe
 ```
 
-预期：编译零警告，CTest 100% 通过，当前测试运行器报告 103 个用例全部通过。
+预期：编译零警告，CTest 100% 通过，当前测试运行器报告 119 个用例全部通过。
 
 ## 四、核心数据模型
 
 项目将建立独立的 `GeometryDocument` 中间层，避免第三方库类型直接进入界面或业务逻辑。
 
-初期支持的实体包括：
+当前内部模型支持的实体包括：
 
 ```cpp
 Line
 Circle
 Arc
 Polyline
-CubicBezier
 ```
+
+`CubicBezier` 留到 CDR 适配阶段设计，目前不是已实现类型。
 
 每个实体至少保存：
 
@@ -140,7 +142,7 @@ Xuanmei/
 │  ├─ DEVELOPMENT_WORKFLOW.md
 │  └─ HANDOVER.md
 ├─ src/
-│  └─ core/                 当前实现：纯 C++20 几何、文档模型、分析器与 R12 Writer
+│  └─ core/                 当前实现：纯 C++20 几何、分析器与 R12 Writer/Reader
 ├─ tests/
 │  └─ core/                 零外部依赖 C++ 测试
 └─ build/                   本地生成目录（Git 忽略）
@@ -204,11 +206,12 @@ Xuanmei/
 - `GeometryDocument`、图层、警告、连续实体 ID 与内建样图；
 - `Native2dAnalyzer`：逐实体指标、计数、总长度、声明闭合数、带实体 ID 的警告和紧凑包围盒；
 - `MinimalDxfWriter`：严格 ASCII DXF R12，支持 LINE、CIRCLE、ARC 和传统 POLYLINE 序列，固定六位小数；
-- 103 个 C++ 单元/验收用例，MSVC `/W4 /permissive- /WX` 零警告通过。
+- `readDxf` / `readDxfFile`：宽容读取 Writer 子集，区分致命结构错误与可恢复内容问题；
+- Writer → Reader 往返验收覆盖实体、图层、逐实体长度、总长度和包围盒；
+- 119 个 C++ 单元/验收用例，MSVC `/W4 /permissive- /WX` 零警告通过。
 
 尚未完成：
 
-- ASCII DXF Reader 与写出/回读一致性测试；
 - Qt 6 正式界面；
 - libcdr 原生接入；
 - OCC 几何分析；

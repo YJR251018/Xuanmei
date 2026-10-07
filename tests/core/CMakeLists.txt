@@ -4,6 +4,7 @@ add_executable(xm_core_tests
     test_document.cpp
     test_native_analyzer.cpp
     test_dxf_writer.cpp
+    test_dxf_reader.cpp
     dsh_test.hpp
 )
 

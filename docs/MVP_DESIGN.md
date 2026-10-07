@@ -90,7 +90,7 @@ Xuanmei/
 | 2 | `document` + `sample_document` | **已完成并评审**（`Layer`/`GeometryEntity`/`GeometryDocument`/`makeSampleDocument` + 单元测试） |
 | 3 | `native_analyzer`（含紧凑圆弧包围盒） | **已完成并复审**（逐实体/总长、类型与图层计数、声明闭合数、带实体 ID 的警告、坏数据隔离） |
 | 4 | `dxf_writer`（ASCII R12） | **已完成并评审**（四类内部图元、图层、单位、文件入口和严格失败路径） |
-| 5 | `dxf_reader` + 往返一致性测试 | 待开始 |
+| 5 | `dxf_reader` + 往返一致性测试 | **已完成并评审**（宽容读取 R12 子集，关键错误路径与完整指标往返已验证） |
 | 6 | Qt 6 界面 + `--selftest` | 待开始 |
 
 切片 1 验收结果：
@@ -293,7 +293,8 @@ DxfReadResult readDxfFile(const std::filesystem::path&);
 | 组码行不是整数 / 组码与值数量为奇数 | 返回 `ok()==false`，警告含行号 |
 | 未闭合的 SECTION / 缺 EOF | 尽力解析已有内容，`ok()==true` 并追加警告 |
 | 不支持的实体（SPLINE/TEXT/INSERT…） | 跳过，按类型计数为一条汇总警告，不中断 |
-| 未知组码、缺省必填组码 | 取默认值并记警告 |
+| 支持字段的损坏/缺省必填组码 | 取默认值并记警告；不影响几何的额外组码忽略 |
+| mesh/polyface 标志、非零 bulge | 跳过所属 POLYLINE 并告警，禁止静默压平成直线段 |
 | 空文件（0 字节） | `ok()==false`，警告「文件为空」 |
 
 读入端为**宽容模式**：可恢复问题绝不中断，全部通过 `warnings` 上报到界面日志。
@@ -491,7 +492,7 @@ ctest --preset mvp-msvc --output-on-failure
 
 **预期结果**
 
-- `core-msvc`：配置与编译退出码 0、无警告；`100% tests passed`；`xm_core_tests.exe` 输出 `ran 86 test(s), 86 passed, 0 failed`（切片 3 评审后实测值，随切片递增）；
+- `core-msvc`：配置与编译退出码 0、无警告；`100% tests passed`；`xm_core_tests.exe` 输出 `ran 119 test(s), 119 passed, 0 failed`（切片 5 评审后实测值，随切片递增）；
 - `mvp-msvc --selftest`：输出含 `entities=7  layers=3  closed=1  warnings=0`、`totalLength=2371.238898038`、`bounds=550.000000 x 650.000000`；
 - 界面：窗口显示样图（方框 + 圆 + 四分之一弧 + 下方矩形），指标与实体表与上表一致。
 

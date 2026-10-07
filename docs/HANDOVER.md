@@ -2,7 +2,7 @@
 
 - 更新日期：2026-10-07
 - 技术主线：C++20 + CMake；Qt 6 UI 尚未开始
-- 当前工作分支：`codex/native-analyzer`
+- 当前工作分支：`codex/dxf-reader`
 
 ## 1. 当前真实能力
 
@@ -15,9 +15,10 @@
 - 7 实体/3 图层内建样图；
 - `Native2dAnalyzer` 的逐实体指标、计数、总长、声明闭合数、可归属警告与紧凑包围盒；
 - `MinimalDxfWriter` 的 ASCII DXF R12 写出：LINE、CIRCLE、ARC、POLYLINE、图层和毫米单位；
-- 103 个 C++ 测试全部通过。
+- `readDxf` / `readDxfFile` 的宽容 ASCII DXF R12 子集读取，以及写出→回读一致性；
+- 119 个 C++ 测试全部通过。
 
-当前不能做：读取 CDR、读取 DXF、显示 Qt 界面、调用 OCC。README 中的相应条目是目标，不是已交付功能。
+当前不能做：读取 CDR、显示 Qt 界面、调用 OCC，或完整读取任意第三方 DXF。Reader 只承诺本项目 Writer 子集；README 中其余相应条目是目标，不是已交付功能。
 
 ## 2. 最近完成内容
 
@@ -35,11 +36,15 @@
 - 警告增加可选实体 ID，解决同文案无法定位来源的问题；
 - 完成切片 4 `MinimalDxfWriter`，并修正原设计中 `R12 + LWPOLYLINE` 的版本矛盾；
 - Writer 在验证完成后才输出，拒绝非毫米、未应用变换和六位小数下会退化的几何。
+- 完成切片 5 `DxfReader`，空文件、二进制、坏组码为致命错误，缺段尾、缺 EOF、损坏字段和未知实体为可恢复警告；
+- Reader 不会把 mesh/polyface 或带非零 bulge 的 `POLYLINE` 静默压平成直线折线；
+- 往返测试对比实体/图层、逐实体长度、总长度与包围盒，覆盖 CRLF、损坏输入和文件入口。
 
 切片 2 审查见 `docs/CODE_REVIEW_2026-10-06.md`，切片 3 审查见
 `docs/CODE_REVIEW_2026-10-07_NATIVE_ANALYZER.md`，二次逻辑复核见
 `docs/CODE_REVIEW_2026-10-07_ANALYZER_LOGIC_RECHECK.md`，切片 4 审查见
-`docs/CODE_REVIEW_2026-10-07_DXF_WRITER.md`，执行流程见 `docs/DEVELOPMENT_WORKFLOW.md`。
+`docs/CODE_REVIEW_2026-10-07_DXF_WRITER.md`，切片 5 审查见
+`docs/CODE_REVIEW_2026-10-07_DXF_READER.md`，执行流程见 `docs/DEVELOPMENT_WORKFLOW.md`。
 
 ## 3. 构建与验收
 
@@ -53,18 +58,18 @@ ctest --preset core-msvc --output-on-failure
 .\build\core-msvc\bin\xm_core_tests.exe
 ```
 
-预期：配置/编译退出码 0、零警告；CTest 100% 通过；运行器输出 103 个用例全部通过。
+预期：配置/编译退出码 0、零警告；CTest 100% 通过；运行器输出 119 个用例全部通过。
 
 ## 4. 下一项任务
 
-下一切片是最小 ASCII DXF Reader，只解析本项目 Writer 生成的 R12 子集。需要明确处理空文件、
-奇数组码、损坏数值、未知实体和未闭合段，并加入写出→回读一致性测试；不加入 Qt、libcdr、OCC 或拓扑修复。
+下一切片是 Qt 6 Widgets 应用与 `--selftest`。UI 只消费 `GeometryDocument`、Reader/Writer 和分析器，
+不得自行解析 DXF 或复制几何算法。开始前先确定 Qt 动态链接和许可证交付说明；不加入 libcdr、OCC 或拓扑修复。
 
 ## 5. 后续顺序
 
 1. 切片 4：最小 ASCII DXF Writer（已完成并评审）；
-2. 切片 5：Reader + 写出/回读一致性（下一项）；
-3. 切片 6：Qt 6 UI + `--selftest`；
+2. 切片 5：Reader + 写出/回读一致性（已完成并评审）；
+3. 切片 6：Qt 6 UI + `--selftest`（下一项）；
 4. 阶段 B：libcdr/librevenge；
 5. 阶段 C：OCC 与几何修复。
 
@@ -78,6 +83,7 @@ ctest --preset core-msvc --output-on-failure
 - `src/core/**` 不得出现 Qt/libcdr/DXF/OCC 第三方类型；
 - 第一阶段不链接 GPL 的 libdxfrw；
 - R12 Polyline 必须写为 `POLYLINE/VERTEX/SEQEND`，不得写 `LWPOLYLINE`；
+- Reader 遇到 mesh/polyface 标志或非零 bulge 时必须告警并跳过，不得静默改变曲线几何；
 - 内部闭式计算与 DXF 六位小数往返使用不同精度门槛；
 - 不重新引入平行的 Python 业务实现；一次性探针放 `local/`，结论沉淀为 C++ 测试。
 
