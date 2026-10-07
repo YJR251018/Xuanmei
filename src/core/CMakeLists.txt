@@ -9,6 +9,8 @@ add_library(xm_core STATIC
     sample_document.cpp
     native_analyzer.hpp
     native_analyzer.cpp
+    dxf_writer.hpp
+    dxf_writer.cpp
 )
 
 target_include_directories(xm_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/..")

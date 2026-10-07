@@ -69,7 +69,7 @@ const char* kindName(const Shape& shape) noexcept
             } else if constexpr (std::is_same_v<T, Arc>) {
                 return "ARC";
             } else {
-                return "LWPOLYLINE";
+                return "POLYLINE";
             }
         },
         shape);

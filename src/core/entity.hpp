@@ -82,8 +82,9 @@ inline double arcSweepDegrees(const Arc& arc) noexcept
     return normalizeDegrees(arc.endDegrees - arc.startDegrees);
 }
 
-// DXF entity name for the active alternative.
-//   Line -> "LINE", Circle -> "CIRCLE", Arc -> "ARC", Polyline -> "LWPOLYLINE"
+// Stable project-level kind name for the active alternative.
+//   Line -> "LINE", Circle -> "CIRCLE", Arc -> "ARC", Polyline -> "POLYLINE"
+// A writer may encode that kind using a version-specific DXF record sequence.
 // Returns a pointer to a string literal; never null.
 const char* kindName(const Shape& shape) noexcept;
 

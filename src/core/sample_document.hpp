@@ -18,7 +18,7 @@ namespace xm::core {
 //   1-4  LINE        OUTLINE  the 300 mm square, in order
 //   5    CIRCLE      HOLES    centre (450,150), r = 50
 //   6    ARC         HOLES    centre (450,350), r = 100, 0 -> 90 degrees
-//   7    LWPOLYLINE  SLOT     closed slot (0,-200) (200,-200) (200,-50) (0,-50)
+//   7    POLYLINE    SLOT     closed slot (0,-200) (200,-200) (200,-50) (0,-50)
 GeometryDocument makeSampleDocument();
 
 }  // namespace xm::core

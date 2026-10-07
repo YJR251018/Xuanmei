@@ -68,7 +68,7 @@ Qt MainWindow
 ### 阶段 A：可演示的 C++ 最小闭环
 
 - C++20 + CMake + Qt 6 Widgets。
-- 手写最小 ASCII DXF R12/R2000 writer，先支持 LINE、ARC、CIRCLE、LWPOLYLINE。
+- 手写最小 ASCII DXF R12 writer，先支持 LINE、ARC、CIRCLE，以及传统 POLYLINE/VERTEX/SEQEND 序列。
 - 先用测试几何验证 DXF 写出、重新读取、长度统计和界面预览。
 - 单位统一为毫米，所有坐标使用 `double`。
 

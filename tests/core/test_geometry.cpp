@@ -274,7 +274,7 @@ TEST(shape, length_dispatches_per_alternative)
     CHECK_NEAR(xm::core::length(makeShape(polyline)), 6.0, kTolerance);
 }
 
-TEST(shape, kind_name_matches_dxf_entity_name)
+TEST(shape, kind_name_matches_project_entity_name)
 {
     CHECK_EQ(std::string(xm::core::kindName(makeShape(Line{pt(0.0, 0.0), pt(1.0, 0.0)}))),
              std::string("LINE"));
@@ -283,7 +283,7 @@ TEST(shape, kind_name_matches_dxf_entity_name)
     CHECK_EQ(std::string(xm::core::kindName(makeShape(Arc{pt(0.0, 0.0), 1.0, 0.0, 90.0}))),
              std::string("ARC"));
     CHECK_EQ(std::string(xm::core::kindName(makeShape(Polyline{}))),
-             std::string("LWPOLYLINE"));
+             std::string("POLYLINE"));
 }
 
 // ---------------------------------------------------------------------------

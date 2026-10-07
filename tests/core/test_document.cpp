@@ -263,7 +263,7 @@ TEST(sample_document, entity_kinds_and_layers_match_the_specification)
     const std::vector<GeometryEntity>& entities = document.entities();
 
     const char* expectedKinds[7] = {
-        "LINE", "LINE", "LINE", "LINE", "CIRCLE", "ARC", "LWPOLYLINE"};
+        "LINE", "LINE", "LINE", "LINE", "CIRCLE", "ARC", "POLYLINE"};
     const char* expectedLayers[7] = {
         "OUTLINE", "OUTLINE", "OUTLINE", "OUTLINE", "HOLES", "HOLES", "SLOT"};
 
@@ -324,7 +324,7 @@ TEST(sample_document, entity_six_is_the_quarter_arc)
 TEST(sample_document, entity_seven_is_the_closed_slot)
 {
     const GeometryDocument document = xm::core::makeSampleDocument();
-    CHECK(holdsKind(document.entities()[6].shape, "LWPOLYLINE"));
+    CHECK(holdsKind(document.entities()[6].shape, "POLYLINE"));
     const Polyline& slot = asPolyline(document.entities()[6].shape);
 
     CHECK(slot.closed);

@@ -58,7 +58,7 @@ TEST(native_analyzer, empty_document_has_zero_metrics)
     CHECK(metrics.countsByKind.empty());
     CHECK(metrics.countsByLayer.empty());
     CHECK_NEAR_ABS(metrics.totalLength, 0.0, 0.0);
-    CHECK_EQ(metrics.closedCount, std::size_t{0});
+    CHECK_EQ(metrics.declaredClosedPolylineCount, std::size_t{0});
     CHECK(!metrics.hasBounds);
     CHECK_NEAR_ABS(Native2dAnalyzer::width(metrics), 0.0, 0.0);
     CHECK_NEAR_ABS(Native2dAnalyzer::height(metrics), 0.0, 0.0);
@@ -81,7 +81,7 @@ TEST(native_analyzer, line_metrics_include_length_and_endpoints)
     CHECK_EQ(metrics.perEntity[0].kind, std::string("LINE"));
     CHECK_EQ(metrics.perEntity[0].layer, std::string("CUT"));
     CHECK_NEAR_ABS(metrics.perEntity[0].length, 10.0, kTolerance);
-    CHECK(!metrics.perEntity[0].closed);
+    CHECK(!metrics.perEntity[0].declaredClosed);
     CHECK(!metrics.perEntity[0].hasWarning);
 }
 
@@ -160,15 +160,31 @@ TEST(native_analyzer, sub_trillionth_degree_arc_remains_measurable)
     CHECK(metrics.warnings.empty());
 }
 
-TEST(native_analyzer, closed_polyline_sets_closed_count_and_vertex_bounds)
+TEST(native_analyzer, closed_polyline_sets_declared_count_and_vertex_bounds)
 {
     GeometryDocument document;
     document.add(Polyline{{pt(-1.0, -2.0), pt(4.0, -2.0), pt(4.0, 3.0)}, true});
     const DocumentMetrics metrics = analyze(document);
 
-    CHECK_EQ(metrics.closedCount, std::size_t{1});
-    CHECK(metrics.perEntity[0].closed);
+    CHECK_EQ(metrics.declaredClosedPolylineCount, std::size_t{1});
+    CHECK(metrics.perEntity[0].declaredClosed);
     checkBounds(metrics, -1.0, -2.0, 4.0, 3.0);
+}
+
+TEST(native_analyzer, degenerate_closed_polyline_is_declared_closed_but_warned)
+{
+    GeometryDocument document;
+    document.add(Polyline{{pt(2.0, 3.0), pt(2.0, 3.0)}, true});
+    const DocumentMetrics metrics = analyze(document);
+
+    CHECK_EQ(metrics.declaredClosedPolylineCount, std::size_t{1});
+    CHECK(metrics.perEntity[0].declaredClosed);
+    CHECK(metrics.perEntity[0].hasWarning);
+    CHECK_EQ(metrics.warnings.size(), std::size_t{1});
+    CHECK(metrics.warnings[0].entityId.has_value());
+    CHECK_EQ(*metrics.warnings[0].entityId, std::uint64_t{1});
+    CHECK_EQ(metrics.warnings[0].message,
+             std::string("闭合折线退化为零长度，未形成可用轮廓"));
 }
 
 TEST(native_analyzer, single_point_polyline_has_zero_size_bounds)
@@ -187,7 +203,7 @@ TEST(native_analyzer, empty_polyline_has_no_bounds)
     document.add(Polyline{});
     const DocumentMetrics metrics = analyze(document);
 
-    CHECK_EQ(metrics.countsByKind.at("LWPOLYLINE"), std::size_t{1});
+    CHECK_EQ(metrics.countsByKind.at("POLYLINE"), std::size_t{1});
     CHECK(!metrics.hasBounds);
     CHECK(metrics.warnings.empty());
 }
@@ -246,7 +262,10 @@ TEST(native_analyzer, non_identity_transform_is_not_applied_and_is_reported)
     checkBounds(metrics, 0.0, 0.0, 3.0, 4.0);
     CHECK(metrics.perEntity[0].hasWarning);
     CHECK_EQ(metrics.warnings.size(), std::size_t{1});
-    CHECK_EQ(metrics.warnings[0], std::string("实体带非恒等变换，尚未参与求值"));
+    CHECK(metrics.warnings[0].entityId.has_value());
+    CHECK_EQ(*metrics.warnings[0].entityId, std::uint64_t{1});
+    CHECK_EQ(metrics.warnings[0].message,
+             std::string("实体带非恒等变换，尚未参与求值"));
 }
 
 TEST(native_analyzer, document_and_entity_warnings_are_aggregated_in_order)
@@ -258,9 +277,27 @@ TEST(native_analyzer, document_and_entity_warnings_are_aggregated_in_order)
     const DocumentMetrics metrics = analyze(document);
 
     CHECK_EQ(metrics.warnings.size(), std::size_t{2});
-    CHECK_EQ(metrics.warnings[0], std::string("document warning"));
-    CHECK_EQ(metrics.warnings[1], std::string("entity warning"));
+    CHECK(!metrics.warnings[0].entityId.has_value());
+    CHECK_EQ(metrics.warnings[0].message, std::string("document warning"));
+    CHECK(metrics.warnings[1].entityId.has_value());
+    CHECK_EQ(*metrics.warnings[1].entityId, std::uint64_t{1});
+    CHECK_EQ(metrics.warnings[1].message, std::string("entity warning"));
     CHECK(metrics.perEntity[0].hasWarning);
+}
+
+TEST(native_analyzer, identical_generated_warnings_keep_their_entity_ids)
+{
+    GeometryDocument document;
+    document.add(Circle{pt(0.0, 0.0), -1.0});
+    document.add(Circle{pt(5.0, 5.0), -2.0});
+    const DocumentMetrics metrics = analyze(document);
+
+    CHECK_EQ(metrics.warnings.size(), std::size_t{2});
+    CHECK(metrics.warnings[0].entityId.has_value());
+    CHECK(metrics.warnings[1].entityId.has_value());
+    CHECK_EQ(*metrics.warnings[0].entityId, std::uint64_t{1});
+    CHECK_EQ(*metrics.warnings[1].entityId, std::uint64_t{2});
+    CHECK_EQ(metrics.warnings[0].message, metrics.warnings[1].message);
 }
 
 TEST(native_analyzer, implementation_is_usable_through_interface)
@@ -281,9 +318,9 @@ TEST(native_analyzer, sample_document_matches_all_acceptance_metrics)
     CHECK_EQ(metrics.countsByKind.at("LINE"), std::size_t{4});
     CHECK_EQ(metrics.countsByKind.at("CIRCLE"), std::size_t{1});
     CHECK_EQ(metrics.countsByKind.at("ARC"), std::size_t{1});
-    CHECK_EQ(metrics.countsByKind.at("LWPOLYLINE"), std::size_t{1});
+    CHECK_EQ(metrics.countsByKind.at("POLYLINE"), std::size_t{1});
     CHECK_EQ(metrics.countsByLayer.size(), std::size_t{3});
-    CHECK_EQ(metrics.closedCount, std::size_t{1});
+    CHECK_EQ(metrics.declaredClosedPolylineCount, std::size_t{1});
     CHECK_NEAR_ABS(metrics.totalLength,
                    1900.0 + 150.0 * std::numbers::pi,
                    kTolerance);

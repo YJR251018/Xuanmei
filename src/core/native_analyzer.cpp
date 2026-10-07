@@ -17,6 +17,8 @@ constexpr const char* kTransformWarning =
     "实体带非恒等变换，尚未参与求值";
 constexpr const char* kInvalidGeometryWarning =
     "实体包含无效或不可表示的几何值，已从相应统计中忽略";
+constexpr const char* kDegenerateClosedPolylineWarning =
+    "闭合折线退化为零长度，未形成可用轮廓";
 
 struct BoundsAccumulator {
     bool hasBounds = false;
@@ -174,7 +176,7 @@ BoundsStatus boundsOf(const Shape& shape, BoundsAccumulator& bounds) noexcept
         shape);
 }
 
-bool isClosed(const Shape& shape) noexcept
+bool isDeclaredClosed(const Shape& shape) noexcept
 {
     return std::visit(
         [](const auto& concrete) noexcept {
@@ -190,7 +192,7 @@ bool isClosed(const Shape& shape) noexcept
 
 void addGeneratedWarning(DocumentMetrics& result, EntityMetric& metric, const char* warning)
 {
-    result.warnings.emplace_back(warning);
+    result.warnings.push_back(AnalysisWarning{metric.id, warning});
     metric.hasWarning = true;
 }
 
@@ -199,7 +201,10 @@ void addGeneratedWarning(DocumentMetrics& result, EntityMetric& metric, const ch
 DocumentMetrics Native2dAnalyzer::analyze(const GeometryDocument& document) const
 {
     DocumentMetrics result;
-    result.warnings = document.warnings();
+    result.warnings.reserve(document.warnings().size() + document.entities().size());
+    for (const std::string& warning : document.warnings()) {
+        result.warnings.push_back(AnalysisWarning{std::nullopt, warning});
+    }
     result.perEntity.reserve(document.entities().size());
 
     BoundsAccumulator documentBounds;
@@ -208,17 +213,17 @@ DocumentMetrics Native2dAnalyzer::analyze(const GeometryDocument& document) cons
         metric.id = entity.id;
         metric.kind = kindName(entity.shape);
         metric.layer = entity.layer;
-        metric.closed = isClosed(entity.shape);
+        metric.declaredClosed = isDeclaredClosed(entity.shape);
         metric.hasWarning = !entity.warnings.empty();
 
         ++result.countsByKind[metric.kind];
         ++result.countsByLayer[metric.layer];
-        if (metric.closed) {
-            ++result.closedCount;
+        if (metric.declaredClosed) {
+            ++result.declaredClosedPolylineCount;
         }
 
         for (const std::string& warning : entity.warnings) {
-            result.warnings.push_back(warning);
+            result.warnings.push_back(AnalysisWarning{entity.id, warning});
         }
         if (!entity.transform.isIdentity()) {
             addGeneratedWarning(result, metric, kTransformWarning);
@@ -235,6 +240,9 @@ DocumentMetrics Native2dAnalyzer::analyze(const GeometryDocument& document) cons
             result.totalLength += entityLength;
             if (boundsStatus == BoundsStatus::contributed) {
                 documentBounds.include(entityBounds);
+            }
+            if (metric.declaredClosed && entityLength == 0.0) {
+                addGeneratedWarning(result, metric, kDegenerateClosedPolylineWarning);
             }
         }
 

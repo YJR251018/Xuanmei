@@ -99,7 +99,7 @@ ctest --preset core-msvc --output-on-failure
 .\build\core-msvc\bin\xm_core_tests.exe
 ```
 
-预期：编译零警告，CTest 100% 通过，当前测试运行器报告 86 个用例全部通过。
+预期：编译零警告，CTest 100% 通过，当前测试运行器报告 103 个用例全部通过。
 
 ## 四、核心数据模型
 
@@ -140,7 +140,7 @@ Xuanmei/
 │  ├─ DEVELOPMENT_WORKFLOW.md
 │  └─ HANDOVER.md
 ├─ src/
-│  └─ core/                 当前实现：纯 C++20 几何、文档模型与原生分析器
+│  └─ core/                 当前实现：纯 C++20 几何、文档模型、分析器与 R12 Writer
 ├─ tests/
 │  └─ core/                 零外部依赖 C++ 测试
 └─ build/                   本地生成目录（Git 忽略）
@@ -202,12 +202,13 @@ Xuanmei/
 - `Point2d`、`Transform2d` 与四类基础图元；
 - 直线、圆、圆弧、折线的闭式长度；
 - `GeometryDocument`、图层、警告、连续实体 ID 与内建样图；
-- `Native2dAnalyzer`：逐实体指标、计数、总长度、闭合数、警告汇总和紧凑包围盒；
-- 86 个 C++ 单元/验收用例，MSVC `/W4 /permissive- /WX` 零警告通过。
+- `Native2dAnalyzer`：逐实体指标、计数、总长度、声明闭合数、带实体 ID 的警告和紧凑包围盒；
+- `MinimalDxfWriter`：严格 ASCII DXF R12，支持 LINE、CIRCLE、ARC 和传统 POLYLINE 序列，固定六位小数；
+- 103 个 C++ 单元/验收用例，MSVC `/W4 /permissive- /WX` 零警告通过。
 
 尚未完成：
 
-- ASCII DXF Writer/Reader 与往返一致性测试；
+- ASCII DXF Reader 与写出/回读一致性测试；
 - Qt 6 正式界面；
 - libcdr 原生接入；
 - OCC 几何分析；

@@ -88,8 +88,8 @@ Xuanmei/
 |---|---|---|
 | 1 | CMake 工程骨架 + `geometry` + `entity` + 单元测试 | **已完成**（A1、A3 的闭合公式部分已验证） |
 | 2 | `document` + `sample_document` | **已完成并评审**（`Layer`/`GeometryEntity`/`GeometryDocument`/`makeSampleDocument` + 单元测试） |
-| 3 | `native_analyzer`（含紧凑圆弧包围盒） | **已完成并评审**（逐实体/总长、类型与图层计数、闭合数、警告汇总、坏数据隔离） |
-| 4 | `dxf_writer`（ASCII R12） | 待开始 |
+| 3 | `native_analyzer`（含紧凑圆弧包围盒） | **已完成并复审**（逐实体/总长、类型与图层计数、声明闭合数、带实体 ID 的警告、坏数据隔离） |
+| 4 | `dxf_writer`（ASCII R12） | **已完成并评审**（四类内部图元、图层、单位、文件入口和严格失败路径） |
 | 5 | `dxf_reader` + 往返一致性测试 | 待开始 |
 | 6 | Qt 6 界面 + `--selftest` | 待开始 |
 
@@ -163,7 +163,7 @@ struct GeometryEntity {
     std::vector<std::string> warnings;  // 该实体的转换警告
 };
 
-const char* kindName(const Shape&);   // "LINE" / "CIRCLE" / "ARC" / "LWPOLYLINE"
+const char* kindName(const Shape&);   // "LINE" / "CIRCLE" / "ARC" / "POLYLINE"
 }
 ```
 
@@ -202,19 +202,24 @@ namespace xm::core {
 
 struct EntityMetric {
     std::uint64_t id;  std::string kind;  std::string layer;
-    double length = 0.0;  bool closed = false;
+    double length = 0.0;  bool declaredClosed = false;
     bool hasWarning = false;
+};
+
+struct AnalysisWarning {
+    std::optional<std::uint64_t> entityId;  // 文档级警告为空
+    std::string message;
 };
 
 struct DocumentMetrics {
     std::map<std::string, std::size_t> countsByKind;
     std::map<std::string, std::size_t> countsByLayer;
     double totalLength = 0.0;
-    std::size_t closedCount = 0;
+    std::size_t declaredClosedPolylineCount = 0;
     bool   hasBounds = false;
     double minX = 0, minY = 0, maxX = 0, maxY = 0;
     std::vector<EntityMetric> perEntity;
-    std::vector<std::string> warnings;    // 文档警告 + 逐实体警告
+    std::vector<AnalysisWarning> warnings;
 };
 
 class IGeometryAnalyzer {                 // 阶段 C 由 OcctAnalyzer 实现
@@ -238,7 +243,8 @@ public:
 - 非恒等变换暂不求值，仍按原始几何统计，并追加约定警告；
 - 非有限坐标、非正半径或计算结果不可表示时，该实体仍计数，但不污染总长度与包围盒，并标记警告；
 - 空折线与零扫角圆弧不产生包围盒；单点折线产生零宽高包围盒；
-- `closedCount` 按闭合 `Polyline` 标志统计；
+- `declaredClosedPolylineCount` 只按 `Polyline::closed` 源标志统计，不声称完成拓扑有效性验证；
+- 声明闭合但长度为零的折线仍保留在声明计数中，同时产生带实体 ID 的退化警告；
 - 圆弧包围盒包含起终点及实际扫角经过的 0°/90°/180°/270° 基数方向。
 
 ### 5.5 DXF 写出（`dxf_writer.hpp`）
@@ -257,7 +263,7 @@ public:
     void write(const GeometryDocument&, std::ostream&) const override;
 };
 
-// 便利入口：路径写入，失败抛 std::runtime_error
+// 便利入口：路径写入，打开/写入失败抛 std::runtime_error
 void writeDxfFile(const GeometryDocument&, const std::filesystem::path&);
 }
 ```
@@ -304,7 +310,7 @@ GeometryDocument makeSampleDocument();          // 确定性，无随机
 
 ### 6.1 版本与结构
 
-- 版本：**ASCII DXF R12**，`$ACADVER = AC1009`，无句柄、无 OBJECTS 段；
+- 版本：**ASCII DXF R12**，`$ACADVER = AC1009`，无句柄、无 BLOCKS/OBJECTS 段；
 - 段顺序：`HEADER` → `TABLES`（只含 `LAYER`）→ `ENTITIES` → `EOF`；
 - 换行统一 `\n`；组码与值严格成对，每行一项；
 - 数值格式：定点小数 `%.6f`（**不用** `%g`，避免科学计数法与精度丢失）。
@@ -317,13 +323,15 @@ GeometryDocument makeSampleDocument();          // 确定性，无随机
 | `LINE` | 8 图层；10/20 起点；11/21 终点 |
 | `CIRCLE` | 8；10/20 圆心；40 半径 |
 | `ARC` | 8；10/20 圆心；40 半径；50 起始角(°)；51 终止角(°) |
-| `LWPOLYLINE` | 8；90 顶点数；70 标志（1=闭合）；每顶点 10/20 |
+| 内部 `Polyline` | R12 `POLYLINE`（8 图层；66=1；70 标志，1=闭合）+ 每点一个 `VERTEX`（8；10/20/30）+ `SEQEND` |
 
 ### 6.3 单位与变换
 
 - 内部长度单位统一 **毫米**；`HEADER` 写 `$INSUNITS = 4`（毫米）、`$MEASUREMENT = 1`（公制）、`$LUNITS = 2`（十进制）、`$LUPREC = 6`。
 - 注意：`$INSUNITS` 属 R13+ 变量。R12 客户端会忽略未知变量，因此写它既保持 R12 兼容，又让现代 CAD 正确识别为毫米。
-- `GeometryEntity::transform` 若为非恒等：**不**参与本 MVP 的几何求值，改为追加警告「实体带非恒等变换，尚未参与求值」。这是显式取舍，避免悄悄算错长度。
+- `GeometryEntity::transform` 若为非恒等：分析器按原始几何统计并追加带实体 ID 的警告；Writer 拒绝写出，避免把未应用变换的坐标静默导出。
+- Writer 只接受毫米文档；R12 图层名最多 31 个 ASCII 字符，只允许字母、数字、`$`、`_`、`-`。
+- 半径或圆弧扫角低于六位小数分辨率时拒绝写出，避免非零几何在文本中退化为零。
 
 ## 7. 精度与数值约定
 
@@ -371,13 +379,13 @@ GeometryDocument makeSampleDocument();          // 确定性，无随机
 | `LINE` | 两端点位移误差相加 `<= 2 x sqrt(2) x 5e-7` = **1.414214e-6** | **0**（端点坐标 `0/300` 均为整数） |
 | `CIRCLE` | 半径舍入经 `2πr` 放大 `<= 2π x 5e-7` = **3.141593e-6** | **0**（`r = 50` 精确） |
 | `ARC` | 半径项 `Δθ x 5e-7` 加角度项 `r x 1e-6 x π/180`；`r = 100`、`Δθ = π/2` 时为 `7.853982e-7 + 1.745329e-6` = **2.530727e-6** | **0**（`r = 100`、`0°/90°` 精确） |
-| `LWPOLYLINE`（n 段） | 各段两端点误差累计 `<= n x 1.414214e-6`，**随 n 线性增长** | **0**（顶点均为整数） |
+| `POLYLINE`（n 段） | 各段两端点误差累计 `<= n x 1.414214e-6`，**随 n 线性增长** | **0**（顶点均为整数） |
 
 `ARC` 一行的角度项是 `r x 1e-6 x π/180` 而不是 `r x 5e-7 x π/180`，因为**起始角与终止角是两个独立写出、独立舍入的字段**（组码 50 与 51），各自误差上限 `5e-7` 度，角差的误差上限因此是 `1e-6` 度。此外该项只在舍入**未跨越角度规范化分支**时成立：`Arc` 的长度按 `normalizeDegrees(end - start)` 计算，若某个角的舍入使差值跨过 `0°/360°` 边界，必须按具体数值重新推导。内建样图的 `0°/90°` 不涉及该分支。
 
 表中的常数都按**向上取整**写成上界（`1.414214e-6` 而非 `1.4142e-6`、`3.141593e-6` 而非 `3.1416e-6`），因为"上限"一旦向下取整就不再是最坏情况的界。
 
-`LWPOLYLINE` 一行已说明问题：它没有上界，只有"随段数增长的上界"，因此**不可能**存在一个与几何无关的常量。文档的上一版写"严格最坏上界 1.414e-6，落在 2e-6 之内，本档取 1e-6"，是自相矛盾的：1e-6 **低于**它自己承认的最坏上界；而且当时只推导了 `LINE`，漏掉了 `CIRCLE` 的 2π 放大、`ARC` 的角度项与多段线的累计。
+`POLYLINE` 一行已说明问题：它没有与顶点数无关的上界，只有"随段数增长的上界"，因此**不可能**存在一个与几何无关的常量。文档的上一版写"严格最坏上界 1.414e-6，落在 2e-6 之内，本档取 1e-6"，是自相矛盾的：1e-6 **低于**它自己承认的最坏上界；而且当时只推导了 `LINE`，漏掉了 `CIRCLE` 的 2π 放大、`ARC` 的角度项与多段线的累计。
 
 **本档的验收阈值必须绑定到具体样图。** A4 只验收 §8 的内建样图。该样图的坐标、半径、角度全部是整数，六位小数可精确表示，**逐项舍入误差为 0**；因此它的往返误差由写出/解析实现决定，而不是由舍入决定。取 **1e-6** 作为 A4 的阈值，是为实现缺陷（而非舍入）留出的余量：
 
@@ -407,15 +415,15 @@ GeometryDocument makeSampleDocument();          // 确定性，无随机
 | 4 | `OUTLINE` | LINE | (0,300) → (0,0) | 300 |
 | 5 | `HOLES` | CIRCLE | 圆心 (450,150)，r = 50 | 100π ≈ 314.159265359 |
 | 6 | `HOLES` | ARC | 圆心 (450,350)，r = 100，0° → 90° | 50π ≈ 157.079632679 |
-| 7 | `SLOT` | LWPOLYLINE（闭合） | (0,−200) (200,−200) (200,−50) (0,−50) | 700 |
+| 7 | `SLOT` | POLYLINE（闭合） | (0,−200) (200,−200) (200,−50) (0,−50) | 700 |
 
 **期望指标**
 
-- 实体总数：**7**（LINE ×4、CIRCLE ×1、ARC ×1、LWPOLYLINE ×1）
+- 实体总数：**7**（LINE ×4、CIRCLE ×1、ARC ×1、POLYLINE ×1）
 - 图层数：**3**（`OUTLINE`、`HOLES`、`SLOT`）
 - 总长度：**2371.238898038 mm**（精确值 `1900 + 150π`：直线与折线 1900，圆 100π，弧 50π；已用独立探针程序逐项核对）
 - 包围盒：`minX=0, minY=-200, maxX=550, maxY=450` → **宽 550.000000 × 高 650.000000 mm**
-- 闭合轮廓数：**1**
+- 声明闭合的折线数：**1**（有效闭合轮廓需后续拓扑阶段另行判断）
 - 文档警告：**0**
 
 包围盒极值来源：

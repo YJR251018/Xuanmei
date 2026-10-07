@@ -2,7 +2,7 @@
 
 - 更新日期：2026-10-07
 - 技术主线：C++20 + CMake；Qt 6 UI 尚未开始
-- 切片 3 基线：`2e9a949`
+- 当前工作分支：`codex/native-analyzer`
 
 ## 1. 当前真实能力
 
@@ -13,10 +13,11 @@
 - `Line`、`Circle`、`Arc`、`Polyline` 与闭式长度；
 - `GeometryEntity`、`Layer`、`GeometryDocument`；
 - 7 实体/3 图层内建样图；
-- `Native2dAnalyzer` 的逐实体指标、计数、总长、闭合数、警告汇总与紧凑包围盒；
-- 86 个 C++ 测试全部通过。
+- `Native2dAnalyzer` 的逐实体指标、计数、总长、声明闭合数、可归属警告与紧凑包围盒；
+- `MinimalDxfWriter` 的 ASCII DXF R12 写出：LINE、CIRCLE、ARC、POLYLINE、图层和毫米单位；
+- 103 个 C++ 测试全部通过。
 
-当前不能做：读取 CDR、读写 DXF、显示 Qt 界面、调用 OCC。README 中的相应条目是目标，不是已交付功能。
+当前不能做：读取 CDR、读取 DXF、显示 Qt 界面、调用 OCC。README 中的相应条目是目标，不是已交付功能。
 
 ## 2. 最近完成内容
 
@@ -30,9 +31,15 @@
 - 增加紧凑圆弧包围盒、坏数据隔离、变换告警与警告汇总；
 - 为 `GeometryDocument::add()` 增加可选逐实体警告入口；
 - 新增 20 个相关用例并完成本切片审查。
+- 二次复审后把闭合指标明确为源数据“声明闭合”，退化闭合折线产生警告；
+- 警告增加可选实体 ID，解决同文案无法定位来源的问题；
+- 完成切片 4 `MinimalDxfWriter`，并修正原设计中 `R12 + LWPOLYLINE` 的版本矛盾；
+- Writer 在验证完成后才输出，拒绝非毫米、未应用变换和六位小数下会退化的几何。
 
 切片 2 审查见 `docs/CODE_REVIEW_2026-10-06.md`，切片 3 审查见
-`docs/CODE_REVIEW_2026-10-07_NATIVE_ANALYZER.md`，执行流程见 `docs/DEVELOPMENT_WORKFLOW.md`。
+`docs/CODE_REVIEW_2026-10-07_NATIVE_ANALYZER.md`，二次逻辑复核见
+`docs/CODE_REVIEW_2026-10-07_ANALYZER_LOGIC_RECHECK.md`，切片 4 审查见
+`docs/CODE_REVIEW_2026-10-07_DXF_WRITER.md`，执行流程见 `docs/DEVELOPMENT_WORKFLOW.md`。
 
 ## 3. 构建与验收
 
@@ -46,16 +53,17 @@ ctest --preset core-msvc --output-on-failure
 .\build\core-msvc\bin\xm_core_tests.exe
 ```
 
-预期：配置/编译退出码 0、零警告；CTest 100% 通过；运行器输出 86 个用例全部通过。
+预期：配置/编译退出码 0、零警告；CTest 100% 通过；运行器输出 103 个用例全部通过。
 
 ## 4. 下一项任务
 
-下一切片是最小 ASCII DXF Writer，只实现 HEADER/TABLES/ENTITIES/EOF 骨架以及 LINE、CIRCLE、ARC、LWPOLYLINE 四种实体写出。要求固定六位小数、组码/值严格成对、图层与毫米单位信息明确，不加入 Reader、Qt、libcdr、OCC 或拓扑修复。
+下一切片是最小 ASCII DXF Reader，只解析本项目 Writer 生成的 R12 子集。需要明确处理空文件、
+奇数组码、损坏数值、未知实体和未闭合段，并加入写出→回读一致性测试；不加入 Qt、libcdr、OCC 或拓扑修复。
 
 ## 5. 后续顺序
 
-1. 切片 4：最小 ASCII DXF Writer；
-2. 切片 5：Reader + 写出/回读一致性；
+1. 切片 4：最小 ASCII DXF Writer（已完成并评审）；
+2. 切片 5：Reader + 写出/回读一致性（下一项）；
 3. 切片 6：Qt 6 UI + `--selftest`；
 4. 阶段 B：libcdr/librevenge；
 5. 阶段 C：OCC 与几何修复。
@@ -69,6 +77,7 @@ ctest --preset core-msvc --output-on-failure
 - 整圆必须用 `Circle`，`Arc(start == end)` 是零扫角；
 - `src/core/**` 不得出现 Qt/libcdr/DXF/OCC 第三方类型；
 - 第一阶段不链接 GPL 的 libdxfrw；
+- R12 Polyline 必须写为 `POLYLINE/VERTEX/SEQEND`，不得写 `LWPOLYLINE`；
 - 内部闭式计算与 DXF 六位小数往返使用不同精度门槛；
 - 不重新引入平行的 Python 业务实现；一次性探针放 `local/`，结论沉淀为 C++ 测试。
 

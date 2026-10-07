@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <map>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -21,22 +22,31 @@ struct EntityMetric {
     std::string kind;
     std::string layer;
     double length = 0.0;
-    bool closed = false;
+    // This mirrors the source Polyline flag. It does not claim that topology
+    // validation has proved the entity to be a usable closed contour.
+    bool declaredClosed = false;
     bool hasWarning = false;
+};
+
+struct AnalysisWarning {
+    // Empty for a document-level warning; populated for source or generated
+    // warnings that belong to one entity.
+    std::optional<std::uint64_t> entityId;
+    std::string message;
 };
 
 struct DocumentMetrics {
     std::map<std::string, std::size_t> countsByKind;
     std::map<std::string, std::size_t> countsByLayer;
     double totalLength = 0.0;
-    std::size_t closedCount = 0;
+    std::size_t declaredClosedPolylineCount = 0;
     bool hasBounds = false;
     double minX = 0.0;
     double minY = 0.0;
     double maxX = 0.0;
     double maxY = 0.0;
     std::vector<EntityMetric> perEntity;
-    std::vector<std::string> warnings;
+    std::vector<AnalysisWarning> warnings;
 };
 
 class IGeometryAnalyzer {

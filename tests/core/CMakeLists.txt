@@ -3,6 +3,7 @@ add_executable(xm_core_tests
     test_geometry.cpp
     test_document.cpp
     test_native_analyzer.cpp
+    test_dxf_writer.cpp
     dsh_test.hpp
 )
 

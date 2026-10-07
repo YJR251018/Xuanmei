@@ -47,11 +47,15 @@ git status --short
 - 空文档、单点/双点折线、负半径和非有限输入的明确行为；
 - 内建样图结果：7 个实体、总长 `1900 + 150π`、包围盒 `(0,-200)–(550,450)`、闭合数 1。
 
-实测：20 个分析器相关新增用例（含 1 个文档警告入口用例），全套 86 个 C++ 用例通过。
+初次验收为 20 个分析器相关新增用例；二次复审又增加退化闭合折线和警告实体归属用例，
+并将指标明确命名为“声明闭合折线数”。
 
-### 切片 4：最小 ASCII DXF Writer
+### 切片 4：最小 ASCII DXF Writer（已完成并评审）
 
-范围：R12/R2000 兼容的 HEADER/TABLES/ENTITIES/EOF 骨架与四类实体；固定小数格式和错误返回。不得接入 GPL 的 libdxfrw。
+范围：真正的 R12/`AC1009` HEADER/TABLES/ENTITIES/EOF 骨架；LINE、CIRCLE、ARC，
+以及将内部 Polyline 写为 `POLYLINE/VERTEX/SEQEND`。固定六位小数，文件使用 LF，
+输入和输出错误明确失败。专项测试覆盖格式、图层、单位、变换、非法数值、文本精度退化和文件安全；
+不得接入 GPL 的 libdxfrw。
 
 ### 切片 5：最小 ASCII DXF Reader
 
