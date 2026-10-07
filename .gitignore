@@ -24,7 +24,8 @@ CMakeFiles/
 
 # Editors and operating systems
 .vs/
-.vscode/
+.vscode/*
+!.vscode/c_cpp_properties.json
 .idea/
 *.user
 *.suo
